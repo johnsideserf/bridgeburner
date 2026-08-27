@@ -52,6 +52,15 @@ Mix and match, or repeat the same action twice — whatever the cost allows.
 
 \* Mortar resists the flames: burning a Jack or Queen costs **both** actions.
 
+## Optional house rules
+
+Tested in simulation but not part of the standard game. Agree before dealing.
+
+- **Quick foundations:** your first two bridge cards cost **1 action** each
+  instead of 2 (the third card onward costs 2 as normal). Rounds run about
+  a third shorter, bridges go up from turn 2, and comebacks are more common —
+  at the cost of fewer burns per round.
+
 ## Arsonist's advice
 
 - Every burn spent is a card not built — attack when it costs them more than

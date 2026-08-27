@@ -456,6 +456,16 @@ for t in tips:
     c.drawString(88, ty, "\u2022  " + t)
     ty -= 13.5
 
+# Optional house rules
+hy = ry - 122 - 12
+c.setFillColor(PARCH2); c.setStrokeColor(GOLD); c.setLineWidth(1)
+c.roundRect(38, hy - 58, W - 76, 54, 8, stroke=1, fill=1)
+c.setFillColor(EMBER_D); c.setFont("Helvetica-Bold", 11)
+c.drawString(52, hy - 18, "OPTIONAL HOUSE RULE  —  QUICK FOUNDATIONS")
+c.setFillColor(INK); c.setFont("Helvetica", 9.6)
+c.drawString(52, hy - 33, "Your first two bridge cards cost 1 action each instead of 2 (the third card onward costs 2 as normal).")
+c.drawString(52, hy - 46, "Shorter rounds, bridges up from turn 2, more comebacks — but fewer burns. Agree before dealing.")
+
 c.setFillColor(INK_SOFT); c.setFont("Helvetica-Oblique", 8.5)
 c.drawCentredString(W/2, 34, "Page 2 of 2  —  five-card bridge wins  ·  equal turns  ·  best of three rounds takes the match")
 
