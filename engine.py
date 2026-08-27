@@ -12,6 +12,10 @@ Rules dict keys:
                (longer bridge wins, tiebreak higher top card, else draw)
   p2_extra   : int  = extra cards dealt to the second player
   first_turn_actions : int = actions on the very first turn of the game (P1)
+  equal_turns: True = a finished bridge by the first player doesn't end the
+               round until the second player has had their turn too; both
+               finished -> higher top card wins, equal -> draw
+  burn_span  : int  = torch card must be at most this many ranks above target
 """
 import random
 
@@ -64,6 +68,15 @@ def clock_winner(g):
     if a[-1][0] != b[-1][0]: return 0 if a[-1][0] > b[-1][0] else 1
     return None
 
+def equal_turns_winner(g):
+    """End of the second player's turn with at least one finished bridge:
+    the finished side wins; both finished -> higher top card, equal -> None."""
+    done = [len(b) >= 5 for b in g.bridges]
+    if all(done):
+        a, b = g.bridges[0][-1][0], g.bridges[1][-1][0]
+        return None if a == b else (0 if a > b else 1)
+    return 0 if done[0] else 1
+
 def turn_actions(g):
     if g.turn_count == 0: return g.rules.get("first_turn_actions", 2)
     return 2
@@ -72,7 +85,8 @@ def legal_burn_cards(g, me):
     opp = 1 - me
     if not g.bridges[opp] or not g.pace_ok(me): return []
     tr, tc = g.bridges[opp][-1]
-    return [c for c in g.hands[me] if c[1] == tc and c[0] > tr]
+    hi = tr + g.rules.get("burn_span", 99)
+    return [c for c in g.hands[me] if c[1] == tc and tr < c[0] <= hi]
 
 def buildable(g, me):
     b = g.bridges[me]
@@ -99,6 +113,7 @@ def do(g, me, act):
         if not g.bridges[opp] or not g.pace_ok(me): return None
         tr, tc = g.bridges[opp][-1]
         if card not in hand or card[1] != tc or card[0] <= tr: return None
+        if card[0] > tr + g.rules.get("burn_span", 99): return None
         cost = g.burn_cost(tr)
         hand.remove(card); g.discard.append(card)
         g.bridges[opp].pop()
@@ -244,7 +259,9 @@ def play(genesA, genesB, rules, rng, max_turns=200, g=None):
                 burns += 1; g.burns[me] += 1
             left -= cost
             if len(g.bridges[me]) >= 5:
-                return me, g
+                if not rules.get("equal_turns"): return me, g
+                if me == 0: break          # P1 finished: P2 still gets a turn
+                return equal_turns_winner(g), g
         lim = rules.get("hand_limit")
         if lim:
             h = g.hands[me]
@@ -252,6 +269,8 @@ def play(genesA, genesB, rules, rng, max_turns=200, g=None):
                 low = min(h, key=lambda c: c[0])
                 h.remove(low); g.discard.append(low)
         g.turn = 1 - me; g.turn_count += 1
+        if rules.get("equal_turns") and me == 1 and any(len(b) >= 5 for b in g.bridges):
+            return equal_turns_winner(g), g
         if rules.get("clock") and not g.draw:
             return clock_winner(g), g
     return None, g

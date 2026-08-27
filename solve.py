@@ -51,6 +51,14 @@ RULESETS = {
     "Clock+P1a1":       {"clock": True, "first_turn_actions": 1},
     "Clock+BurnCost2":  {"clock": True, "burn_cost2": True},
     "Clock+BurnCost2+P2x1": {"clock": True, "burn_cost2": True, "p2_extra": 1},
+    "Equal":                {"equal_turns": True},
+    "Clock+Equal":          {"clock": True, "equal_turns": True},
+    "Clock+BurnCost2+Equal": {"clock": True, "burn_cost2": True, "equal_turns": True},
+    "Clock+Span3":          {"clock": True, "burn_span": 3},
+    "Clock+Span2+Equal":    {"clock": True, "burn_span": 2, "equal_turns": True},
+    "Clock+Span3+Equal":    {"clock": True, "burn_span": 3, "equal_turns": True},
+    "Clock+Span4+Equal":    {"clock": True, "burn_span": 4, "equal_turns": True},
+    "Clock+Span3+BurnCost2+Equal": {"clock": True, "burn_span": 3, "burn_cost2": True, "equal_turns": True},
 }
 
 def select_rulesets(spec):

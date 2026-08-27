@@ -162,3 +162,62 @@ class SecondPlayerCompensation(unittest.TestCase):
         finally:
             E.do = orig
         self.assertNotIn(1, seen[0])
+
+# ---------------------------------------------------------------- equal turns / burn span
+from engine import legal_burn_cards
+
+class BurnSpan(unittest.TestCase):
+    def test_legal_burns_limited_to_span(self):
+        g = fixed_game(hand0=[(8,RED),(9,RED),(12,RED),(9,BLK)], bridge1=[(5,RED)],
+                       rules={"burn_span": 3})
+        self.assertEqual(sorted(legal_burn_cards(g, 0)), [(8,RED)])
+        self.assertIsNone(do(g, 0, (2, (9,RED))))
+        self.assertEqual(do(g, 0, (2, (8,RED))), 1)
+
+    def test_no_span_rule_allows_any_higher(self):
+        g = fixed_game(hand0=[(12,RED)], bridge1=[(5,RED)])
+        self.assertEqual(legal_burn_cards(g, 0), [(12,RED)])
+
+class EqualTurns(unittest.TestCase):
+    def four(self, col): return [(2,col),(3,col),(4,col),(5,col)]
+
+    def go(self, hand1, rules):
+        g = fixed_game(hand0=[(6,RED)], bridge0=self.four(RED),
+                       hand1=hand1, bridge1=self.four(BLK), rules=rules)
+        return play(genes(burn_min=99), genes(burn_min=99), rules, random.Random(0), g=g)
+
+    def test_without_rule_p1_wins_immediately(self):
+        r, g = self.go([(7,BLK)], {})
+        self.assertEqual((r, g.turn_count), (0, 0))
+
+    def test_p2_gets_final_turn_and_wins_on_higher_top_card(self):
+        r, g = self.go([(7,BLK)], {"equal_turns": True})
+        self.assertEqual(r, 1)
+        self.assertEqual(g.turn_count, 1)
+
+    def test_both_finish_equal_top_card_is_draw(self):
+        r, g = self.go([(6,BLK)], {"equal_turns": True})
+        self.assertIsNone(r)
+        self.assertEqual(g.turn_count, 1)
+
+    def test_p2_fails_to_finish_p1_wins(self):
+        r, g = self.go([], {"equal_turns": True})
+        self.assertEqual((r, g.turn_count), (0, 2))   # P2's full turn elapsed
+
+    def test_p2_burns_cap_game_continues(self):
+        # P2 holds a red 7: burns P1's red 6 cap, nobody has 5, game goes on
+        g = fixed_game(hand0=[(6,RED)], bridge0=self.four(RED),
+                       hand1=[(7,RED)], bridge1=[], rules={"equal_turns": True})
+        r, g2 = play(genes(burn_min=99), genes(burn_min=0), {"equal_turns": True},
+                     random.Random(0), g=g, max_turns=2)
+        self.assertEqual(len(g2.bridges[0]), 4)
+        self.assertEqual(g2.turn_count, 2)     # ran to max_turns, no winner yet
+        self.assertIsNone(r)
+
+    def test_p2_finishing_first_ends_immediately(self):
+        g = fixed_game(hand0=[], bridge0=[], hand1=[(6,BLK)], bridge1=self.four(BLK),
+                       rules={"equal_turns": True})
+        g.turn = 1
+        r, g2 = play(genes(burn_min=99), genes(burn_min=99), {"equal_turns": True},
+                     random.Random(0), g=g)
+        self.assertEqual(r, 1)
