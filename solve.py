@@ -32,10 +32,12 @@ SEEDS = {
     "Balanced":       (2,   5,    0,    1,   1,   2,   3,   1,   0,   0),
     "Armored":        (2,   5,    0,    1,   0,   2,   3,   1,   1,   0),
     "Clockwatcher":   (2,   5,    1,    1,   0,   2,   3,   1,   0,   12),
+    "Equilibrium":    (0,   2,    1,    1,   0,   3,   99,  0,   0,   6),
 }
 
 # Name -> rules dict. Add candidate rulesets here; select with --rules.
 RULESETS = {
+    "Current":          {"clock": True, "burn_span": 2, "equal_turns": True},  # locked 2026-08-27
     "NoLimit":          {},
     "KeepPace":         {"slack": 0},
     "Slack1":           {"slack": 1},

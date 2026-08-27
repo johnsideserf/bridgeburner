@@ -24,7 +24,7 @@ CARD_ED = HexColor("#B8AD97")
 GOLD    = HexColor("#C9A227")
 SHADOW  = HexColor("#D8CDB6")
 
-c = canvas.Canvas("/home/claude/bridgeburner/Bridgeburner_Rules.pdf", pagesize=letter)
+c = canvas.Canvas("Bridgeburner_Rules.pdf", pagesize=letter)
 c.setTitle("Bridgeburner - Rules")
 c.setAuthor("A two-player card game")
 
@@ -284,10 +284,12 @@ y = body(46, y, [
 x_end = rich_line(46, y, [
     ("this shared pool is the ", "Helvetica", INK),
     ("River", "Helvetica-Bold", RIVER_D),
-    (".  The rest becomes a face-down draw pile.  If the draw pile ever", "Helvetica", INK),
+    (".  The rest becomes a face-down draw pile — and the draw pile is the ", "Helvetica", INK),
+    ("clock", "Helvetica-Bold", EMBER_D),
+    (".", "Helvetica", INK),
 ])
 y -= 13.6
-y = body(46, y, ["runs out, shuffle the discards to refill it."])
+y = body(46, y, ["It is never reshuffled.  When it runs out, the round ends."])
 y -= 6
 
 # Setup illustration: draw pile + river cards
@@ -321,8 +323,17 @@ x_end = rich_line(46, y, [
 y -= 13.6
 y = body(46, y, [
     "matter and gaps are fine — each card just has to beat the one before it.  Aces are low.",
-    "First finished bridge wins the round; play best of three.",
 ])
+rich_line(46, y, [("Equal turns: ", "Helvetica-Bold", EMBER_D),
+    ("if the first player finishes a bridge, the second player gets one last turn.", "Helvetica", INK)])
+y -= 13.6
+rich_line(46, y, [("The clock: ", "Helvetica-Bold", EMBER_D),
+    ("when the draw pile runs out, the round ends after that turn — the longer bridge wins.", "Helvetica", INK)])
+y -= 13.6
+rich_line(46, y, [("Ties ", "Helvetica-Bold", EMBER_D),
+    ("(both finished, or equal length): compare the top card, then the next card down.", "Helvetica", INK)])
+y -= 13.6
+y = body(46, y, ["Play best of three."])
 y -= 8
 
 # Bridge illustration
@@ -352,9 +363,9 @@ tx = 104
 c.setFillColor(EMBER_D); c.setFont("Helvetica-Bold", 11)
 c.drawString(tx, y - 24, "FACE CARDS ARE MORTAR")
 c.setFillColor(INK); c.setFont("Helvetica", 9.6)
-c.drawString(tx, y - 38, "A Jack, Queen, or King at the end of your bridge is tough: Burning it costs your rival")
-c.drawString(tx, y - 50, "their entire turn (2 actions) instead of 1. But nothing builds past a King — overreach")
-c.drawString(tx, y - 62, "with mortar too early and you'll have to Demolish your own work to keep climbing.")
+c.drawString(tx, y - 38, "A Jack or Queen at the end of your bridge is tough: burning it costs your rival their")
+c.drawString(tx, y - 50, "entire turn (2 actions) instead of 1. Nothing burns a King — but nothing builds past one")
+c.drawString(tx, y - 62, "either. Overreach with mortar too early and you'll have to Demolish to keep climbing.")
 
 c.setFillColor(INK_SOFT); c.setFont("Helvetica-Oblique", 8.5)
 c.drawCentredString(W/2, 34, "Page 1 of 2  —  turn over for actions")
@@ -383,10 +394,10 @@ rows = [
     ]),
     ("BURN", "1 ACTION*", flame, [
         [("Discard a hand card that matches the ", "Helvetica", INK), ("color", "Helvetica-Bold", INK), (" (red/black) of your opponent's", "Helvetica", INK)],
-        [("rightmost bridge card ", "Helvetica", INK), ("and beats it", "Helvetica-Bold", INK), (".  Their card is destroyed — and washes into", "Helvetica", INK)],
-        [("the River, replacing its oldest card.  ", "Helvetica", INK), ("Salvage:", "Helvetica-Bold", EMBER_D), (" the burned player immediately", "Helvetica", INK)],
-        [("draws 1 card from the pile — every act of arson arms your rival.", "Helvetica", INK)],
-        [("*Mortar resists the flames: burning a Jack, Queen, or King costs ", "Helvetica", INK), ("both", "Helvetica-Bold", EMBER_D), (" actions.", "Helvetica", INK)],
+        [("rightmost bridge card, ", "Helvetica", INK), ("beats it, and is at most 2 ranks above it", "Helvetica-Bold", INK), (".", "Helvetica", INK)],
+        [("A King can only burn a Jack or Queen; nothing burns a King.  Their card is destroyed", "Helvetica", INK)],
+        [("— and washes into the River, replacing its oldest card.", "Helvetica", INK)],
+        [("*Mortar resists the flames: burning a Jack or Queen costs ", "Helvetica", INK), ("both", "Helvetica-Bold", EMBER_D), (" actions.", "Helvetica", INK)],
     ]),
     ("FORD", "1 ACTION", ford_icon, [
         [("Discard any card from your hand, take any one of the 3 River cards, then", "Helvetica", INK)],
@@ -394,7 +405,7 @@ rows = [
     ]),
     ("FLUSH", "1 ACTION", flush_icon, [
         [("Discard all 3 River cards and deal 3 fresh ones from the draw pile.", "Helvetica", INK)],
-        [("Fish for what you need — but your rival sees the new cards too.", "Helvetica", INK)],
+        [("Fish for what you need — but your rival sees the new cards, and the clock ticks 3.", "Helvetica", INK)],
     ]),
     ("DEMOLISH", "1 ACTION", hammer_icon, [
         [("Remove the rightmost card of ", "Helvetica", INK), ("your own", "Helvetica-Bold", INK), (" bridge to the discard pile.", "Helvetica", INK)],
@@ -427,16 +438,17 @@ for name, cost, icon, lines in rows:
 # Strategy footer
 ry -= 2
 c.setFillColor(INK)
-c.roundRect(38, ry - 108, W - 76, 102, 8, stroke=0, fill=1)
+c.roundRect(38, ry - 122, W - 76, 116, 8, stroke=0, fill=1)
 flame(60, ry - 56, 18)
 c.setFillColor(FLAME_Y); c.setFont("Helvetica-Bold", 12)
 c.drawString(88, ry - 24, "ARSONIST'S ADVICE")
 c.setFillColor(PARCH); c.setFont("Helvetica", 9.3)
 tips = [
     "Every burn spent is a card not built — attack when it costs them more than it costs you.",
-    "Early arson is charity — every burn hands your rival a fresh card. Save the torch for spans four and five.",
-    "Watch the colors: ending your bridge on a card whose color you've bled from the deck is armor.",
+    "Torches must be close. High cards finish bridges; the cards just above your rival's cap burn them.",
+    "Watch the colors: cap your bridge with a card whose next two ranks in that color are already gone.",
     "The River remembers. Burned cards resurface there — don't hand your rival their card back.",
+    "The pile is the clock. Every draw and ford brings the end nearer — a half-built bridge beats an empty one.",
     "Mortar buys time, not immunity. A face-card cap costs your rival a full turn to burn — build while they swing.",
 ]
 ty = ry - 42
@@ -445,7 +457,7 @@ for t in tips:
     ty -= 13.5
 
 c.setFillColor(INK_SOFT); c.setFont("Helvetica-Oblique", 8.5)
-c.drawCentredString(W/2, 34, "Page 2 of 2  —  first bridge of five wins  ·  best of three rounds takes the match")
+c.drawCentredString(W/2, 34, "Page 2 of 2  —  five-card bridge wins  ·  equal turns  ·  best of three rounds takes the match")
 
 c.save()
 print("done")

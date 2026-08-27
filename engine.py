@@ -21,6 +21,10 @@ import random
 
 RED, BLK = 0, 1
 
+# The locked ruleset (2026-08-27): pile is the clock, torches within 2 ranks,
+# second player always gets a reply turn. See RULES.md.
+CURRENT_RULES = {"clock": True, "burn_span": 2, "equal_turns": True}
+
 def fresh_deck():
     # (rank 1..13, color) x2 copies per color = 52
     return [(r, c) for r in range(1, 14) for c in (RED, RED, BLK, BLK)]
@@ -247,8 +251,9 @@ def policy(genes, g, me, left, burns_done):
         return (4,)
     return (9,)  # pass
 
-def play(genesA, genesB, rules, rng, max_turns=200, g=None):
-    """Return (winner 0/1/None, game) with A moving first."""
+def play(genesA, genesB, rules, rng, max_turns=200, g=None, on_action=None):
+    """Return (winner 0/1/None, game) with A moving first.
+    on_action(g, me, act, cost) is called after every applied action."""
     if g is None: g = G(rules, rng)
     genes = (genesA, genesB)
     while g.turn_count < max_turns:
@@ -258,6 +263,7 @@ def play(genesA, genesB, rules, rng, max_turns=200, g=None):
             cost = do(g, me, act)
             if cost is None:
                 cost = 99
+            if on_action: on_action(g, me, act, cost)
             if act[0] == 2 and cost != 99:
                 burns += 1; g.burns[me] += 1
             left -= cost

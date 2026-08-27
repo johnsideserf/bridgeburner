@@ -239,3 +239,18 @@ class NextCardTiebreak(unittest.TestCase):
     def test_clock_same_length_and_top_next_card_decides(self):
         g = fixed_game(hand0=[], bridge0=[(2,RED),(9,RED)], bridge1=[(4,BLK),(9,BLK)])
         self.assertEqual(clock_winner(g), 1)
+
+# ---------------------------------------------------------------- locked ruleset + trace hook
+from engine import CURRENT_RULES
+
+class Locked(unittest.TestCase):
+    def test_current_rules(self):
+        self.assertEqual(CURRENT_RULES, {"clock": True, "burn_span": 2, "equal_turns": True})
+
+    def test_on_action_hook_sees_every_action(self):
+        seen = []
+        r, g = play(genes(burn_min=99), genes(burn_min=99), CURRENT_RULES, random.Random(0),
+                    on_action=lambda g, me, act, cost: seen.append((me, act[0], cost)))
+        self.assertGreater(len(seen), 5)
+        self.assertEqual(seen[0][0], 0)
+        self.assertTrue(all(c in (1, 2, 99) for _, _, c in seen))
