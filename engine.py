@@ -1,0 +1,221 @@
+#!/usr/bin/env python3
+"""
+Bridgeburner engine + parameterized policy space.
+
+Rules dict keys:
+  slack      : None = burning unrestricted
+               int n = may burn only if len(my bridge) >= len(opp bridge) - n
+  salvage    : True = when your bridge card is burned, draw 1 card as compensation
+  burn_cost2 : True = burning always costs 2 actions
+  hand_limit : int  = discard down to this at end of turn
+"""
+import random
+
+RED, BLK = 0, 1
+
+def fresh_deck():
+    # (rank 1..13, color) x2 copies per color = 52
+    return [(r, c) for r in range(1, 14) for c in (RED, RED, BLK, BLK)]
+
+class G:
+    __slots__ = ("rules","rng","hands","river","draw","discard","bridges",
+                 "turn","turn_count","first_to3","first_to4")
+    def __init__(self, rules, rng):
+        self.rules = rules; self.rng = rng
+        d = fresh_deck(); rng.shuffle(d)
+        self.hands   = [d[:7], d[7:14]]
+        self.river   = d[14:17]
+        self.draw    = d[17:]
+        self.discard = []
+        self.bridges = [[], []]
+        self.turn = 0; self.turn_count = 0
+        self.first_to3 = None   # who first reached bridge length 3 / 4
+        self.first_to4 = None
+
+    def draw_card(self):
+        if not self.draw and self.discard:
+            self.draw, self.discard = self.discard, []
+            self.rng.shuffle(self.draw)
+        return self.draw.pop() if self.draw else None
+
+    def burn_cost(self, target_rank):
+        if self.rules.get("burn_cost2"): return 2
+        return 2 if target_rank >= 11 else 1
+
+    def pace_ok(self, me):
+        s = self.rules.get("slack")
+        if s is None: return True
+        return len(self.bridges[me]) >= len(self.bridges[1-me]) - s
+
+def legal_burn_cards(g, me):
+    opp = 1 - me
+    if not g.bridges[opp] or not g.pace_ok(me): return []
+    tr, tc = g.bridges[opp][-1]
+    return [c for c in g.hands[me] if c[1] == tc and c[0] > tr]
+
+def buildable(g, me):
+    b = g.bridges[me]
+    floor = b[-1][0] if b else 0
+    return [c for c in g.hands[me] if c[0] > floor]
+
+def do(g, me, act):
+    """Apply action, return cost or None if illegal. 99 = pass (ends turn)."""
+    hand = g.hands[me]; k = act[0]
+    if k == 0:                                   # draw
+        c = g.draw_card()
+        if c is None: return None
+        hand.append(c); return 1
+    if k == 1:                                   # build card
+        card = act[1]; b = g.bridges[me]
+        floor = b[-1][0] if b else 0
+        if card not in hand or card[0] <= floor: return None
+        hand.remove(card); b.append(card)
+        if len(b) == 3 and g.first_to3 is None: g.first_to3 = me
+        if len(b) == 4 and g.first_to4 is None: g.first_to4 = me
+        return 2
+    if k == 2:                                   # burn card
+        card = act[1]; opp = 1 - me
+        if not g.bridges[opp] or not g.pace_ok(me): return None
+        tr, tc = g.bridges[opp][-1]
+        if card not in hand or card[1] != tc or card[0] <= tr: return None
+        cost = g.burn_cost(tr)
+        hand.remove(card); g.discard.append(card)
+        g.bridges[opp].pop()
+        if g.river: g.discard.append(g.river.pop(0))
+        g.river.append((tr, tc))
+        if g.rules.get("salvage"):
+            c2 = g.draw_card()
+            if c2 is not None: g.hands[opp].append(c2)
+        return cost
+    if k == 3:                                   # ford hand_card river_idx
+        _, hcard, ridx = act
+        if hcard not in hand or ridx >= len(g.river): return None
+        hand.remove(hcard); g.discard.append(hcard)
+        hand.append(g.river.pop(ridx))
+        c2 = g.draw_card()
+        if c2 is not None: g.river.append(c2)
+        return 1
+    if k == 4:                                   # flush
+        if not g.river: return None
+        g.discard.extend(g.river); g.river = []
+        for _ in range(3):
+            c2 = g.draw_card()
+            if c2 is None: break
+            g.river.append(c2)
+        return 1
+    if k == 5:                                   # demolish
+        if not g.bridges[me]: return None
+        g.discard.append(g.bridges[me].pop()); return 1
+    return 99                                    # pass
+
+# ------------------------------------------------------------------ policy
+# Genes (all small discrete spaces):
+GENE_SPACE = {
+    "burn_min":   [0, 1, 2, 3, 4, 99],   # burn only if opp bridge >= this (99 never)
+    "spend_cap":  [2, 5, 13],            # burn only with card <= target rank + cap
+    "build_trig": [0, 1, 2],             # 0 build asap; 1 need full chain; 2 chain-1
+    "keep_chain": [0, 1],                # choose build card preserving longest chain
+    "mortar":     [0, 1],                # prefer J/Q/K for bridge slots 4-5
+    "ford_gain":  [1, 2, 3],             # ford if best river - worst hand >= gain
+    "race_at":    [3, 4, 99],            # if opp bridge >= this, build asap
+    "demolish":   [0, 1],                # tear down own bridge when stuck
+}
+GENE_KEYS = list(GENE_SPACE)
+
+def rand_genes(rng):
+    return tuple(rng.choice(GENE_SPACE[k]) for k in GENE_KEYS)
+
+def gname(genes):
+    return ",".join(f"{k}={v}" for k, v in zip(GENE_KEYS, genes))
+
+def chain_len(cards, floor):
+    return len({c[0] for c in cards if c[0] > floor})
+
+def policy(genes, g, me, left, burns_done):
+    (burn_min, spend_cap, build_trig, keep_chain,
+     mortar, ford_gain, race_at, demolish) = genes
+    hand = g.hands[me]; opp = 1 - me
+    b = buildable(g, me)
+    mylen = len(g.bridges[me]); olen = len(g.bridges[opp])
+    floor = g.bridges[me][-1][0] if g.bridges[me] else 0
+
+    def pick_build():
+        cand = b
+        if mortar and mylen >= 3:
+            faces = [c for c in cand if c[0] >= 11]
+            if faces: return min(faces, key=lambda c: c[0])
+        if keep_chain:
+            return max(cand, key=lambda c: (chain_len(hand, c[0]), -c[0]))
+        return min(cand, key=lambda c: c[0])
+
+    # 0. win now
+    if mylen == 4 and b and left >= 2:
+        return (1, min(b, key=lambda c: c[0]))
+    # 1. burn
+    if olen >= burn_min:
+        q = legal_burn_cards(g, me)
+        if q:
+            tr = g.bridges[opp][-1][0]
+            card = min(q, key=lambda c: c[0])
+            if card[0] <= tr + spend_cap and g.burn_cost(tr) <= left:
+                return (2, card)
+    # 2. build
+    if b and left >= 2:
+        need = 5 - mylen
+        ok = (build_trig == 0 or
+              (build_trig == 1 and chain_len(hand, floor) >= need) or
+              (build_trig == 2 and chain_len(hand, floor) >= need - 1))
+        if ok or olen >= race_at:
+            return (1, pick_build())
+    # 3. ford
+    if g.river and hand:
+        bi = max(range(len(g.river)), key=lambda i: g.river[i][0])
+        low = min(hand, key=lambda c: c[0])
+        if g.river[bi][0] - low[0] >= ford_gain:
+            return (3, low, bi)
+    # 4. draw
+    if g.draw or g.discard:
+        return (0,)
+    # 5. demolish if stuck
+    if demolish and g.bridges[me] and not b and chain_len(hand, 0) > chain_len(hand, floor):
+        return (5,)
+    if g.river:
+        return (4,)
+    return (9,)  # pass
+
+def play(genesA, genesB, rules, rng, max_turns=200):
+    """Return (winner 0/1/None, game) with A moving first."""
+    g = G(rules, rng)
+    genes = (genesA, genesB)
+    while g.turn_count < max_turns:
+        me = g.turn; left = 2; burns = 0
+        while left > 0:
+            act = policy(genes[me], g, me, left, burns)
+            cost = do(g, me, act)
+            if cost is None:
+                cost = 99
+            if act[0] == 2 and cost != 99:
+                burns += 1
+            left -= cost
+            if len(g.bridges[me]) >= 5:
+                return me, g
+        lim = rules.get("hand_limit")
+        if lim:
+            h = g.hands[me]
+            while len(h) > lim:
+                low = min(h, key=lambda c: c[0])
+                h.remove(low); g.discard.append(low)
+        g.turn = 1 - me; g.turn_count += 1
+    return None, g
+
+def winrate(genesA, genesB, rules, n, rng):
+    """A's win rate over n games, alternating first player. Stalls = 0.5."""
+    w = 0.0
+    for i in range(n):
+        if i % 2 == 0:
+            r, _ = play(genesA, genesB, rules, random.Random(rng.random()))
+            w += 1.0 if r == 0 else 0.5 if r is None else 0.0
+        else:
+            r, _ = play(genesB, genesA, rules, random.Random(rng.random()))
+            w += 1.0 if r == 1 else 0.5 if r is None else 0.0
+    return w / n
