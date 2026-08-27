@@ -19,7 +19,7 @@ def fresh_deck():
 
 class G:
     __slots__ = ("rules","rng","hands","river","draw","discard","bridges",
-                 "turn","turn_count","first_to3","first_to4")
+                 "turn","turn_count","first_to3","first_to4","burns")
     def __init__(self, rules, rng):
         self.rules = rules; self.rng = rng
         d = fresh_deck(); rng.shuffle(d)
@@ -31,6 +31,7 @@ class G:
         self.turn = 0; self.turn_count = 0
         self.first_to3 = None   # who first reached bridge length 3 / 4
         self.first_to4 = None
+        self.burns = [0, 0]     # burns performed by each player
 
     def draw_card(self):
         if not self.draw and self.discard:
@@ -119,6 +120,7 @@ GENE_SPACE = {
     "ford_gain":  [1, 2, 3],             # ford if best river - worst hand >= gain
     "race_at":    [3, 4, 99],            # if opp bridge >= this, build asap
     "demolish":   [0, 1],                # tear down own bridge when stuck
+    "armor":      [0, 1],                # prefer build card with fewest unseen higher same-color cards
 }
 GENE_KEYS = list(GENE_SPACE)
 
@@ -131,19 +133,39 @@ def gname(genes):
 def chain_len(cards, floor):
     return len({c[0] for c in cards if c[0] > floor})
 
+def unseen_higher(g, me, card):
+    """Copies of higher, same-color cards NOT visible to `me` (own hand, river,
+    both bridges). A card with 0 unseen higher cards cannot be burned."""
+    r, col = card
+    total = 2 * (13 - r)                     # 2 copies per rank per color
+    seen = 0
+    for c in g.hands[me]:
+        if c[1] == col and c[0] > r: seen += 1
+    for c in g.river:
+        if c[1] == col and c[0] > r: seen += 1
+    for br in g.bridges:
+        for c in br:
+            if c[1] == col and c[0] > r: seen += 1
+    return total - seen
+
 def policy(genes, g, me, left, burns_done):
     (burn_min, spend_cap, build_trig, keep_chain,
-     mortar, ford_gain, race_at, demolish) = genes
+     mortar, ford_gain, race_at, demolish, armor) = genes
     hand = g.hands[me]; opp = 1 - me
-    b = buildable(g, me)
     mylen = len(g.bridges[me]); olen = len(g.bridges[opp])
     floor = g.bridges[me][-1][0] if g.bridges[me] else 0
+    # King guard: a King below slot 5 is a dead end, never build it there.
+    b = [c for c in buildable(g, me) if c[0] != 13 or mylen == 4]
 
     def pick_build():
         cand = b
         if mortar and mylen >= 3:
             faces = [c for c in cand if c[0] >= 11]
-            if faces: return min(faces, key=lambda c: c[0])
+            if faces: cand = faces
+        if armor:
+            u = {c: unseen_higher(g, me, c) for c in cand}
+            m = min(u.values())
+            cand = [c for c in cand if u[c] == m]
         if keep_chain:
             return max(cand, key=lambda c: (chain_len(hand, c[0]), -c[0]))
         return min(cand, key=lambda c: c[0])
@@ -167,18 +189,21 @@ def policy(genes, g, me, left, burns_done):
               (build_trig == 2 and chain_len(hand, floor) >= need - 1))
         if ok or olen >= race_at:
             return (1, pick_build())
-    # 3. ford
+    # 3. demolish if stuck: nothing buildable and tearing down the top card
+    #    would give a longer chain (always true when the bridge ends in a K)
+    if demolish and g.bridges[me] and not b:
+        newfloor = g.bridges[me][-2][0] if mylen >= 2 else 0
+        if chain_len(hand, newfloor) > chain_len(hand, floor):
+            return (5,)
+    # 4. ford
     if g.river and hand:
         bi = max(range(len(g.river)), key=lambda i: g.river[i][0])
         low = min(hand, key=lambda c: c[0])
         if g.river[bi][0] - low[0] >= ford_gain:
             return (3, low, bi)
-    # 4. draw
+    # 5. draw
     if g.draw or g.discard:
         return (0,)
-    # 5. demolish if stuck
-    if demolish and g.bridges[me] and not b and chain_len(hand, 0) > chain_len(hand, floor):
-        return (5,)
     if g.river:
         return (4,)
     return (9,)  # pass
@@ -195,7 +220,7 @@ def play(genesA, genesB, rules, rng, max_turns=200):
             if cost is None:
                 cost = 99
             if act[0] == 2 and cost != 99:
-                burns += 1
+                burns += 1; g.burns[me] += 1
             left -= cost
             if len(g.bridges[me]) >= 5:
                 return me, g
@@ -219,3 +244,20 @@ def winrate(genesA, genesB, rules, n, rng):
             r, _ = play(genesB, genesA, rules, random.Random(rng.random()))
             w += 1.0 if r == 1 else 0.5 if r is None else 0.0
     return w / n
+
+def match_stats(genesA, genesB, rules, n, rng):
+    """A vs B over n games, alternating first player. Returns dict:
+    winrate (A's, stalls=0.5), first_player (first mover's win rate),
+    stalls, avg_turns, burns_per_game."""
+    w = fp = stalls = turns = burns = 0.0
+    for i in range(n):
+        first, second, a_idx = (genesA, genesB, 0) if i % 2 == 0 else (genesB, genesA, 1)
+        r, g = play(first, second, rules, random.Random(rng.random()))
+        if r is None:
+            stalls += 1; w += 0.5; fp += 0.5
+        else:
+            w += 1.0 if r == a_idx else 0.0
+            fp += 1.0 if r == 0 else 0.0
+        turns += g.turn_count; burns += sum(g.burns)
+    return {"winrate": w/n, "first_player": fp/n, "stalls": stalls/n,
+            "avg_turns": turns/n, "burns_per_game": burns/n}

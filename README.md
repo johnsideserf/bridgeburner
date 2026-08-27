@@ -23,12 +23,19 @@ discards. First 5-card bridge wins; best of three.
 
 ## Files
 
-- `engine.py` — fast game engine + parameterized policy space (~4k strategies).
-  Rule variants via a `rules` dict: `slack` (keep-pace), `salvage`,
-  `burn_cost2`, `hand_limit`.
-- `solve.py` — PSRO-lite: round-robin payoff matrix → Nash mixture (regret
-  matching) → coordinate-ascent best-response search → exploitability
-  trajectory, comeback and stall rates.
+- `engine.py` — fast game engine (~10k games/s) + parameterized policy space
+  (9 genes, ~8k strategies). Rule variants via a `rules` dict: `slack`
+  (keep-pace), `salvage`, `burn_cost2`, `hand_limit`. Policy never builds a
+  King below slot 5 (dead end), demolishes when stuck, and has an `armor`
+  gene (color-aware builds). `match_stats()` reports first-player win rate,
+  burns/game, stalls, turns.
+- `solve.py` — PSRO-lite: incremental round-robin payoff matrix → Nash
+  mixture (regret matching) → coordinate-ascent best-response search →
+  **held-out** re-evaluation of each best response (so reported
+  exploitability isn't search noise) → exploitability trajectory,
+  first-player advantage, comeback/stall rates, burns/game, mixture support.
+  Rulesets live in `RULESETS`; pick with `--rules Name,Name`.
+- `test_engine.py`, `test_solve.py` — pytest suite for the above.
 - `sim.py`, `sim2.py` — earlier heuristic-bot tournaments (rounds 1 & 2).
 - `make_rules.py` — regenerates `Bridgeburner_Rules.pdf` (reportlab).
 - `RULES.md` — plain-text rulebook (same content as the PDF; keep in sync).
@@ -40,18 +47,32 @@ discards. First 5-card bridge wins; best of three.
 - Keep-pace rule (burn only if your bridge >= theirs): unexploitable but
   kills comebacks (4% after opponent reaches 4) and most interaction.
 - Slack-1 keep-pace: re-enables the burn lock. Rejected.
-- **Salvage (shipped):** burns always legal, burned player draws 1.
-  Exploitability ~55% and falling, 0% stalls, ~12-turn games, best comeback
-  rate (10% after opponent hits 4). Equilibrium burns concentrate on
-  spans 4–5.
+- Salvage (burns always legal, burned player draws 1): 0% stalls, ~12-turn
+  games, 10% comebacks — but equilibrium self-play is a near-pure race that
+  the **first player wins 87%**. Not a fix.
+- Most stalls under the original rules are King dead-ends (a King built at
+  slot 1–4 can never be built past), not the burn war: 90% of stalled games
+  had a King stuck on a bridge.
+- Earlier "exploitability ~55%" numbers were the search's noise floor
+  (winner's-curse bias), not real exploitability; the solver now re-evaluates
+  best responses on held-out games.
 
 ## Run it
 
 ```
-python solve.py                                  # quick pass (~5 min)
-python solve.py --games 500 --iters 8 --restarts 5   # thorough (~30–60 min)
-python make_rules.py                             # rebuild the PDF
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python -m pytest -q                        # tests
+.venv/bin/python solve.py                            # all rulesets (~2 min)
+.venv/bin/python solve.py --rules NoLimit,BurnCost2   # subset (prefix match)
+.venv/bin/python solve.py --games 500 --iters 8 --restarts 5 --heldout 8  # thorough
+.venv/bin/python make_rules.py                       # rebuild the PDF
 ```
+
+Solver output ends with a summary table: exploitability (held-out best
+response win rate; 50% = unexploitable), first-player win rate (50% = fair),
+comeback rates after the opponent reaches 3/4 cards, stall rate, average
+turns, burns per game, and mixture support (number of strategies in the Nash
+mix; 1 = one dominant way to play).
 
 ## Open questions
 
