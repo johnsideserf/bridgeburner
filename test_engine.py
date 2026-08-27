@@ -5,7 +5,7 @@ from engine import G, RED, BLK, policy, play, do, match_stats, GENE_KEYS, GENE_S
 def genes(**over):
     """Default genes: build asap, burn always, with optional overrides."""
     base = dict(burn_min=0, spend_cap=13, build_trig=0, keep_chain=0,
-                mortar=0, ford_gain=2, race_at=99, demolish=1, armor=0)
+                mortar=0, ford_gain=2, race_at=99, demolish=1, armor=0, endgame=0)
     base.update(over)
     return tuple(base[k] for k in GENE_KEYS)
 
@@ -84,3 +84,81 @@ class GeneSpace(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# ---------------------------------------------------------------- new rules
+from engine import clock_winner, turn_actions
+
+genes2 = genes
+
+class Clock(unittest.TestCase):
+    def test_no_reshuffle_under_clock(self):
+        g = fixed_game(hand0=[], rules={"clock": True})
+        g.draw = []; g.discard = [(5, RED)]
+        self.assertIsNone(g.draw_card())
+        self.assertEqual(g.discard, [(5, RED)])
+
+    def test_reshuffle_without_clock(self):
+        g = fixed_game(hand0=[])
+        g.draw = []; g.discard = [(5, RED)]
+        self.assertEqual(g.draw_card(), (5, RED))
+
+    def test_clock_winner_longer_bridge_then_top_card_then_tie(self):
+        g = fixed_game(hand0=[], bridge0=[(2,RED),(3,RED)], bridge1=[(9,BLK)])
+        self.assertEqual(clock_winner(g), 0)
+        g = fixed_game(hand0=[], bridge0=[(2,RED)], bridge1=[(9,BLK)])
+        self.assertEqual(clock_winner(g), 1)
+        g = fixed_game(hand0=[], bridge0=[(9,RED)], bridge1=[(9,BLK)])
+        self.assertIsNone(clock_winner(g))
+
+    def test_play_ends_when_pile_runs_out(self):
+        g = fixed_game(hand0=[], bridge0=[(2,RED),(3,RED)], hand1=[], bridge1=[(5,BLK)],
+                       rules={"clock": True})
+        g.draw = [(1, RED)]; g.discard = []
+        r, g2 = play(genes2(burn_min=99), genes2(burn_min=99), {"clock": True},
+                     random.Random(0), g=g)
+        self.assertEqual(r, 0)              # P0 drew the last card, longer bridge wins
+        self.assertEqual(g2.turn_count, 1)
+
+    def test_policy_does_not_try_to_draw_from_empty_pile_under_clock(self):
+        g = fixed_game(hand0=[(2,RED)], river=[(3,RED),(4,RED),(5,RED)], rules={"clock": True})
+        g.draw = []; g.discard = [(9, BLK)]; g.bridges = [[(12, RED)], []]
+        act = policy(genes2(burn_min=99, ford_gain=99), g, 0, 2, 0)
+        self.assertNotEqual(act[0], 0)
+
+class EndgameGene(unittest.TestCase):
+    def test_builds_asap_when_pile_low(self):
+        g = fixed_game(hand0=[(4,RED),(6,BLK)], bridge0=[(2,RED)])
+        g.draw = g.draw[:3]
+        self.assertEqual(policy(genes2(build_trig=1, endgame=6), g, 0, 2, 0), (1, (4, RED)))
+        self.assertNotEqual(policy(genes2(build_trig=1, endgame=0), g, 0, 2, 0)[0], 1)
+
+class SecondPlayerCompensation(unittest.TestCase):
+    def test_p2_extra_cards(self):
+        g = G({"p2_extra": 2}, random.Random(0))
+        self.assertEqual(len(g.hands[0]), 7)
+        self.assertEqual(len(g.hands[1]), 9)
+        self.assertEqual(len(g.draw), 52 - 16 - 3)
+
+    def test_first_turn_actions(self):
+        g = G({"first_turn_actions": 1}, random.Random(0))
+        self.assertEqual(turn_actions(g), 1)
+        g.turn_count = 1; g.turn = 1
+        self.assertEqual(turn_actions(g), 2)
+        self.assertEqual(turn_actions(G({}, random.Random(0))), 2)
+
+    def test_first_turn_actions_prevents_p1_opening_build(self):
+        g = fixed_game(hand0=[(2,RED)], hand1=[], rules={"first_turn_actions": 1})
+        g.draw = g.draw[:1]        # P0's 1-action turn draws the last card -> clock ends... no clock here
+        # Without clock the game continues; check P0 could not build on turn 1:
+        seen = {}
+        import engine as E
+        orig = E.do
+        def spy(gg, me, act):
+            seen.setdefault(gg.turn_count, []).append(act[0]); return orig(gg, me, act)
+        E.do = spy
+        try:
+            play(genes2(burn_min=99), genes2(burn_min=99), {"first_turn_actions": 1},
+                 random.Random(0), g=g, max_turns=1)
+        finally:
+            E.do = orig
+        self.assertNotIn(1, seen[0])

@@ -24,8 +24,10 @@ discards. First 5-card bridge wins; best of three.
 ## Files
 
 - `engine.py` — fast game engine (~10k games/s) + parameterized policy space
-  (9 genes, ~8k strategies). Rule variants via a `rules` dict: `slack`
-  (keep-pace), `salvage`, `burn_cost2`, `hand_limit`. Policy never builds a
+  (10 genes, ~23k strategies). Rule variants via a `rules` dict: `slack`
+  (keep-pace), `salvage`, `burn_cost2`, `hand_limit`, `clock` (no reshuffle,
+  round ends when the pile runs out: longer bridge wins), `p2_extra` (extra
+  cards for the second player), `first_turn_actions`. Policy never builds a
   King below slot 5 (dead end), demolishes when stuck, and has an `armor`
   gene (color-aware builds). `match_stats()` reports first-player win rate,
   burns/game, stalls, turns.

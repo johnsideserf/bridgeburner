@@ -8,6 +8,10 @@ Rules dict keys:
   salvage    : True = when your bridge card is burned, draw 1 card as compensation
   burn_cost2 : True = burning always costs 2 actions
   hand_limit : int  = discard down to this at end of turn
+  clock      : True = no reshuffle; round ends when the draw pile runs out
+               (longer bridge wins, tiebreak higher top card, else draw)
+  p2_extra   : int  = extra cards dealt to the second player
+  first_turn_actions : int = actions on the very first turn of the game (P1)
 """
 import random
 
@@ -23,9 +27,10 @@ class G:
     def __init__(self, rules, rng):
         self.rules = rules; self.rng = rng
         d = fresh_deck(); rng.shuffle(d)
-        self.hands   = [d[:7], d[7:14]]
-        self.river   = d[14:17]
-        self.draw    = d[17:]
+        n2 = 7 + rules.get("p2_extra", 0)
+        self.hands   = [d[:7], d[7:7+n2]]
+        self.river   = d[7+n2:10+n2]
+        self.draw    = d[10+n2:]
         self.discard = []
         self.bridges = [[], []]
         self.turn = 0; self.turn_count = 0
@@ -33,8 +38,11 @@ class G:
         self.first_to4 = None
         self.burns = [0, 0]     # burns performed by each player
 
+    def can_draw(self):
+        return bool(self.draw) or (bool(self.discard) and not self.rules.get("clock"))
+
     def draw_card(self):
-        if not self.draw and self.discard:
+        if not self.draw and self.discard and not self.rules.get("clock"):
             self.draw, self.discard = self.discard, []
             self.rng.shuffle(self.draw)
         return self.draw.pop() if self.draw else None
@@ -47,6 +55,18 @@ class G:
         s = self.rules.get("slack")
         if s is None: return True
         return len(self.bridges[me]) >= len(self.bridges[1-me]) - s
+
+def clock_winner(g):
+    """Round ended on the clock: longer bridge, then higher top card, else None."""
+    a, b = g.bridges
+    if len(a) != len(b): return 0 if len(a) > len(b) else 1
+    if not a: return None
+    if a[-1][0] != b[-1][0]: return 0 if a[-1][0] > b[-1][0] else 1
+    return None
+
+def turn_actions(g):
+    if g.turn_count == 0: return g.rules.get("first_turn_actions", 2)
+    return 2
 
 def legal_burn_cards(g, me):
     opp = 1 - me
@@ -121,6 +141,7 @@ GENE_SPACE = {
     "race_at":    [3, 4, 99],            # if opp bridge >= this, build asap
     "demolish":   [0, 1],                # tear down own bridge when stuck
     "armor":      [0, 1],                # prefer build card with fewest unseen higher same-color cards
+    "endgame":    [0, 6, 12],            # build asap once draw pile <= this many cards
 }
 GENE_KEYS = list(GENE_SPACE)
 
@@ -150,7 +171,7 @@ def unseen_higher(g, me, card):
 
 def policy(genes, g, me, left, burns_done):
     (burn_min, spend_cap, build_trig, keep_chain,
-     mortar, ford_gain, race_at, demolish, armor) = genes
+     mortar, ford_gain, race_at, demolish, armor, endgame) = genes
     hand = g.hands[me]; opp = 1 - me
     mylen = len(g.bridges[me]); olen = len(g.bridges[opp])
     floor = g.bridges[me][-1][0] if g.bridges[me] else 0
@@ -187,7 +208,7 @@ def policy(genes, g, me, left, burns_done):
         ok = (build_trig == 0 or
               (build_trig == 1 and chain_len(hand, floor) >= need) or
               (build_trig == 2 and chain_len(hand, floor) >= need - 1))
-        if ok or olen >= race_at:
+        if ok or olen >= race_at or len(g.draw) <= endgame:
             return (1, pick_build())
     # 3. demolish if stuck: nothing buildable and tearing down the top card
     #    would give a longer chain (always true when the bridge ends in a K)
@@ -202,18 +223,18 @@ def policy(genes, g, me, left, burns_done):
         if g.river[bi][0] - low[0] >= ford_gain:
             return (3, low, bi)
     # 5. draw
-    if g.draw or g.discard:
+    if g.can_draw():
         return (0,)
     if g.river:
         return (4,)
     return (9,)  # pass
 
-def play(genesA, genesB, rules, rng, max_turns=200):
+def play(genesA, genesB, rules, rng, max_turns=200, g=None):
     """Return (winner 0/1/None, game) with A moving first."""
-    g = G(rules, rng)
+    if g is None: g = G(rules, rng)
     genes = (genesA, genesB)
     while g.turn_count < max_turns:
-        me = g.turn; left = 2; burns = 0
+        me = g.turn; left = turn_actions(g); burns = 0
         while left > 0:
             act = policy(genes[me], g, me, left, burns)
             cost = do(g, me, act)
@@ -231,6 +252,8 @@ def play(genesA, genesB, rules, rng, max_turns=200):
                 low = min(h, key=lambda c: c[0])
                 h.remove(low); g.discard.append(low)
         g.turn = 1 - me; g.turn_count += 1
+        if rules.get("clock") and not g.draw:
+            return clock_winner(g), g
     return None, g
 
 def winrate(genesA, genesB, rules, n, rng):

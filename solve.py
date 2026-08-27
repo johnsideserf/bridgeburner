@@ -25,12 +25,13 @@ from engine import (GENE_SPACE, GENE_KEYS, rand_genes, gname, winrate, play,
                     match_stats)
 
 SEEDS = {
-    #                 burn spend build keep mort ford race demo armor
-    "Builder":        (99,  13,   0,    1,   0,   2,   99,  1,   0),
-    "Hoarder":        (0,   13,   1,    1,   0,   1,   99,  0,   0),
-    "Sniper":         (3,   13,   1,    1,   0,   1,   4,   0,   0),
-    "Balanced":       (2,   5,    0,    1,   1,   2,   3,   1,   0),
-    "Armored":        (2,   5,    0,    1,   0,   2,   3,   1,   1),
+    #                 burn spend build keep mort ford race demo armor end
+    "Builder":        (99,  13,   0,    1,   0,   2,   99,  1,   0,   0),
+    "Hoarder":        (0,   13,   1,    1,   0,   1,   99,  0,   0,   0),
+    "Sniper":         (3,   13,   1,    1,   0,   1,   4,   0,   0,   0),
+    "Balanced":       (2,   5,    0,    1,   1,   2,   3,   1,   0,   0),
+    "Armored":        (2,   5,    0,    1,   0,   2,   3,   1,   1,   0),
+    "Clockwatcher":   (2,   5,    1,    1,   0,   2,   3,   1,   0,   12),
 }
 
 # Name -> rules dict. Add candidate rulesets here; select with --rules.
@@ -42,6 +43,14 @@ RULESETS = {
     "BurnCost2":        {"burn_cost2": True},
     "HandLimit8":       {"hand_limit": 8},
     "BurnCost2+Hand8":  {"burn_cost2": True, "hand_limit": 8},
+    "P2x1":             {"p2_extra": 1},
+    "P1a1":             {"first_turn_actions": 1},
+    "Clock":            {"clock": True},
+    "Clock+P2x1":       {"clock": True, "p2_extra": 1},
+    "Clock+P2x2":       {"clock": True, "p2_extra": 2},
+    "Clock+P1a1":       {"clock": True, "first_turn_actions": 1},
+    "Clock+BurnCost2":  {"clock": True, "burn_cost2": True},
+    "Clock+BurnCost2+P2x1": {"clock": True, "burn_cost2": True, "p2_extra": 1},
 }
 
 def select_rulesets(spec):
