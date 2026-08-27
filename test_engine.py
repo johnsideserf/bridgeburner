@@ -221,3 +221,21 @@ class EqualTurns(unittest.TestCase):
         r, g2 = play(genes(burn_min=99), genes(burn_min=99), {"equal_turns": True},
                      random.Random(0), g=g)
         self.assertEqual(r, 1)
+
+# ---------------------------------------------------------------- tiebreak: next card down
+from engine import equal_turns_winner
+
+class NextCardTiebreak(unittest.TestCase):
+    def test_equal_turns_same_top_next_card_decides(self):
+        g = fixed_game(hand0=[], bridge0=[(2,RED),(3,RED),(5,RED),(9,RED),(12,RED)],
+                       bridge1=[(2,BLK),(4,BLK),(6,BLK),(8,BLK),(12,BLK)])
+        self.assertEqual(equal_turns_winner(g), 0)     # 9 > 8 at slot 4
+
+    def test_equal_turns_identical_ranks_is_draw(self):
+        b = [(2,RED),(3,RED),(5,RED),(9,RED),(12,RED)]
+        g = fixed_game(hand0=[], bridge0=b, bridge1=[(r,BLK) for r,_ in b])
+        self.assertIsNone(equal_turns_winner(g))
+
+    def test_clock_same_length_and_top_next_card_decides(self):
+        g = fixed_game(hand0=[], bridge0=[(2,RED),(9,RED)], bridge1=[(4,BLK),(9,BLK)])
+        self.assertEqual(clock_winner(g), 1)

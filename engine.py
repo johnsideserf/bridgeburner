@@ -14,7 +14,7 @@ Rules dict keys:
   first_turn_actions : int = actions on the very first turn of the game (P1)
   equal_turns: True = a finished bridge by the first player doesn't end the
                round until the second player has had their turn too; both
-               finished -> higher top card wins, equal -> draw
+               finished -> higher top card, then next card down, ... ; identical -> draw
   burn_span  : int  = torch card must be at most this many ranks above target
 """
 import random
@@ -60,21 +60,24 @@ class G:
         if s is None: return True
         return len(self.bridges[me]) >= len(self.bridges[1-me]) - s
 
+def compare_bridges(a, b):
+    """Tiebreak between two bridges of equal length: compare the top card,
+    then the next card down, and so on. Returns 0/1 or None if identical."""
+    for x, y in zip(reversed(a), reversed(b)):
+        if x[0] != y[0]: return 0 if x[0] > y[0] else 1
+    return None
+
 def clock_winner(g):
-    """Round ended on the clock: longer bridge, then higher top card, else None."""
+    """Round ended on the clock: longer bridge wins, then compare_bridges."""
     a, b = g.bridges
     if len(a) != len(b): return 0 if len(a) > len(b) else 1
-    if not a: return None
-    if a[-1][0] != b[-1][0]: return 0 if a[-1][0] > b[-1][0] else 1
-    return None
+    return compare_bridges(a, b)
 
 def equal_turns_winner(g):
     """End of the second player's turn with at least one finished bridge:
     the finished side wins; both finished -> higher top card, equal -> None."""
     done = [len(b) >= 5 for b in g.bridges]
-    if all(done):
-        a, b = g.bridges[0][-1][0], g.bridges[1][-1][0]
-        return None if a == b else (0 if a > b else 1)
+    if all(done): return compare_bridges(*g.bridges)
     return 0 if done[0] else 1
 
 def turn_actions(g):

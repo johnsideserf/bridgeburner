@@ -28,7 +28,8 @@ discards. First 5-card bridge wins; best of three.
   (keep-pace), `salvage`, `burn_cost2`, `hand_limit`, `clock` (no reshuffle,
   round ends when the pile runs out: longer bridge wins), `p2_extra` (extra
   cards for the second player), `first_turn_actions`, `equal_turns` (second
-  player always gets a reply turn; both finished → higher top card),
+  player always gets a reply turn; both finished → compare top card, then
+  next card down),
   `burn_span` (torch must be within N ranks of the target). Policy never builds a
   King below slot 5 (dead end), demolishes when stuck, and has an `armor`
   gene (color-aware builds). `match_stats()` reports first-player win rate,
