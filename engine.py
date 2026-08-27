@@ -105,6 +105,24 @@ def buildable(g, me):
     floor = b[-1][0] if b else 0
     return [c for c in g.hands[me] if c[0] > floor]
 
+def legal_actions(g, me, left):
+    """All legal (action, cost) pairs for `me` with `left` actions remaining."""
+    out = []
+    if g.can_draw(): out.append(((0,), 1))
+    bc = g.build_cost(me)
+    if left >= bc:
+        for c in dict.fromkeys(buildable(g, me)): out.append(((1, c), bc))
+    if g.bridges[1-me]:
+        tr = g.bridges[1-me][-1][0]; cost = g.burn_cost(tr)
+        if cost <= left:
+            for c in dict.fromkeys(legal_burn_cards(g, me)): out.append(((2, c), cost))
+    for c in dict.fromkeys(g.hands[me]):
+        for i in range(len(g.river)): out.append(((3, c, i), 1))
+    if g.river: out.append(((4,), 1))
+    if g.bridges[me]: out.append(((5,), 1))
+    out.append(((9,), 99))
+    return out
+
 def do(g, me, act):
     """Apply action, return cost or None if illegal. 99 = pass (ends turn)."""
     hand = g.hands[me]; k = act[0]
@@ -258,37 +276,56 @@ def policy(genes, g, me, left, burns_done):
         return (4,)
     return (9,)  # pass
 
+def after_action(g, rules, me):
+    """Called after `me` acts. Returns (over, winner, turn_over)."""
+    if len(g.bridges[me]) >= 5:
+        if not rules.get("equal_turns"): return True, me, True
+        if me == 0: return False, None, True     # P1 finished: P2 still gets a turn
+        return True, equal_turns_winner(g), True
+    return False, None, False
+
+def end_turn(g, rules, me):
+    """Hand limit, pass the turn, equal-turns / clock resolution.
+    Returns (over, winner)."""
+    lim = rules.get("hand_limit")
+    if lim:
+        h = g.hands[me]
+        while len(h) > lim:
+            low = min(h, key=lambda c: c[0])
+            h.remove(low); g.discard.append(low)
+    g.turn = 1 - me; g.turn_count += 1
+    if rules.get("equal_turns") and me == 1 and any(len(b) >= 5 for b in g.bridges):
+        return True, equal_turns_winner(g)
+    if rules.get("clock") and not g.draw:
+        return True, clock_winner(g)
+    return False, None
+
+def bot_turn(genes, g, rules, me, on_action=None):
+    """Play out `me`'s whole turn with `genes`. Returns (over, winner)."""
+    left = turn_actions(g); burns = 0
+    while left > 0:
+        act = policy(genes, g, me, left, burns)
+        cost = do(g, me, act)
+        if cost is None:
+            cost = 99
+        if on_action: on_action(g, me, act, cost)
+        if act[0] == 2 and cost != 99:
+            burns += 1; g.burns[me] += 1
+        left -= cost
+        over, winner, turn_over = after_action(g, rules, me)
+        if over: return True, winner
+        if turn_over: break
+    return end_turn(g, rules, me)
+
 def play(genesA, genesB, rules, rng, max_turns=200, g=None, on_action=None):
     """Return (winner 0/1/None, game) with A moving first.
     on_action(g, me, act, cost) is called after every applied action."""
     if g is None: g = G(rules, rng)
     genes = (genesA, genesB)
     while g.turn_count < max_turns:
-        me = g.turn; left = turn_actions(g); burns = 0
-        while left > 0:
-            act = policy(genes[me], g, me, left, burns)
-            cost = do(g, me, act)
-            if cost is None:
-                cost = 99
-            if on_action: on_action(g, me, act, cost)
-            if act[0] == 2 and cost != 99:
-                burns += 1; g.burns[me] += 1
-            left -= cost
-            if len(g.bridges[me]) >= 5:
-                if not rules.get("equal_turns"): return me, g
-                if me == 0: break          # P1 finished: P2 still gets a turn
-                return equal_turns_winner(g), g
-        lim = rules.get("hand_limit")
-        if lim:
-            h = g.hands[me]
-            while len(h) > lim:
-                low = min(h, key=lambda c: c[0])
-                h.remove(low); g.discard.append(low)
-        g.turn = 1 - me; g.turn_count += 1
-        if rules.get("equal_turns") and me == 1 and any(len(b) >= 5 for b in g.bridges):
-            return equal_turns_winner(g), g
-        if rules.get("clock") and not g.draw:
-            return clock_winner(g), g
+        me = g.turn
+        over, winner = bot_turn(genes[me], g, rules, me, on_action)
+        if over: return winner, g
     return None, g
 
 def winrate(genesA, genesB, rules, n, rng):

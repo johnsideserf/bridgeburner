@@ -275,3 +275,31 @@ class CheapSpans(unittest.TestCase):
         self.assertEqual(policy(genes(), g, 0, 1, 0), (1, (3,RED)))
         g2 = fixed_game(hand0=[(3,RED),(9,BLK)])
         self.assertNotEqual(policy(genes(), g2, 0, 1, 0)[0], 1)
+
+# ---------------------------------------------------------------- legal actions
+from engine import legal_actions
+
+class LegalActions(unittest.TestCase):
+    def test_lists_actions_with_costs(self):
+        g = fixed_game(hand0=[(4,RED),(9,BLK),(6,RED)], bridge0=[(3,RED)],
+                       bridge1=[(5,RED)], river=[(2,BLK),(7,RED),(11,BLK)],
+                       rules={"burn_span": 2})
+        acts = legal_actions(g, 0, 2)
+        kinds = {a[0] for a, c in acts}
+        self.assertEqual(kinds, {0, 1, 2, 3, 4, 5, 9})
+        self.assertIn(((1, (4,RED)), 2), acts)
+        self.assertIn(((1, (9,BLK)), 2), acts)
+        self.assertIn(((2, (6,RED)), 1), acts)       # 6r burns 5r (within 2)
+        self.assertNotIn(((2, (9,BLK)), 1), acts)    # wrong color
+        self.assertIn(((3, (4,RED), 1), 1), acts)
+        self.assertEqual(len([a for a, c in acts if a[0] == 3]), 9)
+
+    def test_respects_actions_left(self):
+        g = fixed_game(hand0=[(4,RED)], bridge0=[])
+        acts = legal_actions(g, 0, 1)
+        self.assertNotIn(1, {a[0] for a, c in acts})
+        self.assertNotIn(5, {a[0] for a, c in acts})   # empty bridge
+
+    def test_no_king_below_slot_five_is_still_legal_by_rules(self):
+        g = fixed_game(hand0=[(13,RED)], bridge0=[(3,RED)])
+        self.assertIn(((1, (13,RED)), 2), legal_actions(g, 0, 2))

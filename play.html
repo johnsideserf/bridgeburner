@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bridgeburner Table</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  color-scheme: light;
+  --surface-1: #fcfcfb; --surface-2: #f3f2ee; --surface-3: #e9e7e0; --line: #e2e0d9;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #8a8880;
+  --accent: #2a78d6; --ember: #eb6834; --river: #1baf7a; --good: #0ca30c; --critical: #d03b3b;
+  --card-bg: #ffffff; --card-red: #c8342b; --card-black: #1e1e1e; --card-back: #6e2b22;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-1: #1a1a19; --surface-2: #232321; --surface-3: #2d2c29; --line: #34332f;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+    --accent: #3987e5; --ember: #d95926; --river: #199e70;
+    --card-bg: #f4f1e8; --card-red: #c8342b; --card-black: #1e1e1e; --card-back: #5a241c;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1: #1a1a19; --surface-2: #232321; --surface-3: #2d2c29; --line: #34332f;
+  --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+  --accent: #3987e5; --ember: #d95926; --river: #199e70;
+  --card-bg: #f4f1e8; --card-red: #c8342b; --card-black: #1e1e1e; --card-back: #5a241c;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface-1); color: var(--text-primary); font: 14px/1.45 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--line); }
+h1 { font-size: 18px; margin: 0; }
+nav a { color: var(--text-secondary); text-decoration: none; margin-right: 14px; }
+nav a.here { color: var(--text-primary); font-weight: 600; }
+.tabs { display: flex; gap: 4px; margin-left: auto; }
+.tabs button { background: var(--surface-2); border: 1px solid var(--line); color: var(--text-secondary); padding: 5px 12px; border-radius: 6px; cursor: pointer; }
+.tabs button.on { color: var(--text-primary); border-color: var(--accent); font-weight: 600; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 24px; border-bottom: 1px solid var(--line); background: var(--surface-2); font-size: 13px; }
+.controls label { color: var(--text-secondary); }
+select, input[type=number] { background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; font: inherit; }
+input[type=number] { width: 70px; }
+button.act { background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--line); border-radius: 6px; padding: 5px 12px; cursor: pointer; font: inherit; }
+button.act:hover:not(:disabled) { border-color: var(--accent); }
+button.act:disabled { opacity: .45; cursor: default; }
+button.act.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.act.ember { border-color: var(--ember); color: var(--ember); }
+main { display: grid; grid-template-columns: 1fr 300px; gap: 16px; padding: 16px 24px 32px; }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+.table { display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; align-items: center; gap: 10px; min-height: 84px; padding: 6px 10px; border-radius: 8px; }
+.row.zone { background: var(--surface-2); border: 1px solid var(--line); }
+.row.turn { outline: 2px solid var(--accent); }
+.row .who { width: 92px; font-size: 12px; color: var(--text-secondary); line-height: 1.3; }
+.row .who b { display: block; color: var(--text-primary); font-size: 13px; }
+.cards { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-height: 70px; align-items: center; }
+.card { width: 48px; height: 68px; border-radius: 6px; background: var(--card-bg); border: 1px solid #b9b3a4; position: relative; font-weight: 700; font-size: 18px; display: flex; align-items: center; justify-content: center; user-select: none; box-shadow: 0 1px 2px rgba(0,0,0,.15); transition: transform .12s; }
+.card.red { color: var(--card-red); } .card.black { color: var(--card-black); }
+.card small { position: absolute; top: 3px; left: 5px; font-size: 10px; font-weight: 600; }
+.card.back { background: repeating-linear-gradient(45deg, var(--card-back), var(--card-back) 4px, #8a3a2e 4px, #8a3a2e 8px); border-color: #4a1d16; }
+.card.sel { transform: translateY(-8px); box-shadow: 0 0 0 2px var(--accent), 0 4px 10px rgba(0,0,0,.25); }
+.card.can { cursor: pointer; }
+.card.can:hover { transform: translateY(-4px); }
+.card.dim { opacity: .45; }
+.card.target { box-shadow: 0 0 0 2px var(--river); cursor: pointer; }
+.card.burnable { box-shadow: 0 0 0 2px var(--ember); }
+.slot { width: 48px; height: 68px; border: 1px dashed var(--line); border-radius: 6px; }
+.arrow { color: var(--ember); font-size: 16px; margin: 0 -2px; }
+.pile { display: flex; align-items: center; gap: 14px; }
+.pile .n { font-size: 12px; color: var(--text-secondary); text-align: center; }
+.pile .n b { display: block; font-size: 18px; color: var(--text-primary); }
+.panel { display: flex; flex-direction: column; gap: 10px; }
+.box { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--surface-1); }
+.box h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); margin: 0 0 8px; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.hint { font-size: 12px; color: var(--text-secondary); margin-top: 6px; min-height: 1.4em; }
+.log { font-size: 12px; max-height: 320px; overflow-y: auto; }
+.log div { padding: 2px 0; border-bottom: 1px solid var(--line); color: var(--text-secondary); }
+.log div b { color: var(--text-primary); font-weight: 600; }
+.log div.h b { color: var(--accent); } .log div.b b { color: var(--ember); }
+.banner { padding: 10px 12px; border-radius: 8px; font-weight: 600; display: none; }
+.banner.win { display: block; background: color-mix(in srgb, var(--good) 15%, var(--surface-1)); border: 1px solid var(--good); }
+.banner.lose { display: block; background: color-mix(in srgb, var(--critical) 15%, var(--surface-1)); border: 1px solid var(--critical); }
+.banner.draw { display: block; background: var(--surface-2); border: 1px solid var(--line); }
+.scrub { width: 100%; }
+.status { font-size: 13px; color: var(--text-secondary); }
+.status b { color: var(--text-primary); }
+kbd { font: 11px ui-monospace, Menlo, monospace; background: var(--surface-3); padding: 1px 5px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Bridgeburner</h1>
+  <nav><a href="/">Solver</a><a href="/play" class="here">Table</a></nav>
+  <div class="tabs"><button id="tabWatch" class="on">Watch bots</button><button id="tabPlay">Play vs bot</button></div>
+</header>
+
+<div class="controls" id="ctlWatch">
+  <label>P1 <select id="wA"></select></label>
+  <label>P2 <select id="wB"></select></label>
+  <label>Rules <select id="wRules"></select></label>
+  <label>Seed <input type="number" id="wSeed" value="1"></label>
+  <label>Speed <select id="wSpeed"><option value="1500">slow</option><option value="700" selected>normal</option><option value="250">fast</option></select></label>
+  <button class="act primary" id="wLoad">Load game</button>
+  <button class="act" id="wPlay" disabled>▶ Play</button>
+  <button class="act" id="wStep" disabled>Step</button>
+  <span class="status" id="wStatus"></span>
+</div>
+<div class="controls" id="ctlPlay" style="display:none">
+  <label>Opponent <select id="pBot"></select></label>
+  <label>Rules <select id="pRules"></select></label>
+  <label>Seed <input type="number" id="pSeed" value="1"></label>
+  <label><input type="checkbox" id="pFirst" checked> I go first</label>
+  <button class="act primary" id="pNew">New game</button>
+  <span class="status" id="pStatus"></span>
+</div>
+
+<main>
+  <div class="table">
+    <div class="row zone" id="rowTopHand"><div class="who" id="whoTop"><b>P2</b>hand</div><div class="cards" id="topHand"></div></div>
+    <div class="row" id="rowTopBridge"><div class="who">bridge</div><div class="cards" id="topBridge"></div></div>
+    <div class="row zone" id="rowRiver">
+      <div class="who"><b>River</b>face-up</div>
+      <div class="cards" id="river"></div>
+      <div class="pile"><div class="card back" style="width:40px;height:56px"></div><div class="n"><b id="pile">–</b>pile</div><div class="n"><b id="discard">–</b>discard</div></div>
+    </div>
+    <div class="row" id="rowBotBridge"><div class="who">bridge</div><div class="cards" id="botBridge"></div></div>
+    <div class="row zone" id="rowBotHand"><div class="who" id="whoBot"><b>P1</b>hand</div><div class="cards" id="botHand"></div></div>
+    <input type="range" class="scrub" id="scrub" min="0" max="0" value="0" style="display:none">
+  </div>
+  <div class="panel">
+    <div class="banner" id="banner"></div>
+    <div class="box" id="actBox" style="display:none">
+      <h2>Your turn · <span id="left">2</span> action(s) left</h2>
+      <div class="actions" id="actions"></div>
+      <div class="hint" id="hint">Click a card in your hand, or choose an action.</div>
+    </div>
+    <div class="box"><h2>Log</h2><div class="log" id="log"></div></div>
+    <div class="box" id="rulesBox"><h2>Rules in play</h2><div class="status" id="rulesText">–</div></div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const RANK = {1:'A', 11:'J', 12:'Q', 13:'K'};
+const rk = r => RANK[r] || String(r);
+const key = c => c[0] + ':' + c[1];
+const esc = s => String(s).replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+
+function cardEl(c, cls = '') {
+  if (!c) return `<div class="card back ${cls}"></div>`;
+  return `<div class="card ${c[1] === 0 ? 'red' : 'black'} ${cls}" data-card="${key(c)}"><small>${c[1] === 0 ? '♥' : '♠'}</small>${rk(c[0])}</div>`;
+}
+function bridgeHtml(cards, clsFn) {
+  let s = '';
+  for (let i = 0; i < 5; i++) {
+    if (i) s += '<span class="arrow">›</span>';
+    s += cards[i] ? cardEl(cards[i], clsFn ? clsFn(cards[i], i, cards) : '') : '<div class="slot"></div>';
+  }
+  return s;
+}
+function rulesText(r) {
+  const parts = [];
+  if (r.clock) parts.push('pile is the clock'); if (r.burn_span) parts.push(`torch within ${r.burn_span} ranks`);
+  if (r.equal_turns) parts.push('equal turns'); if (r.burn_cost2) parts.push('burns cost 2');
+  if (r.cheap_spans) parts.push(`spans 1–${r.cheap_spans} cost 1`); if (r.hand_limit) parts.push(`hand limit ${r.hand_limit}`);
+  if (r.salvage) parts.push('salvage'); if (r.slack != null) parts.push(`keep pace (slack ${r.slack})`);
+  if (r.p2_extra) parts.push(`P2 +${r.p2_extra} cards`); if (r.first_turn_actions) parts.push(`P1 first turn ${r.first_turn_actions} action`);
+  return parts.length ? parts.join(' · ') : 'original rules (no restrictions)';
+}
+
+// ---------------------------------------------------------------- mode switching
+let mode = 'watch';
+function setMode(m) {
+  mode = m;
+  $('tabWatch').classList.toggle('on', m === 'watch'); $('tabPlay').classList.toggle('on', m === 'play');
+  $('ctlWatch').style.display = m === 'watch' ? '' : 'none'; $('ctlPlay').style.display = m === 'play' ? '' : 'none';
+  $('actBox').style.display = 'none'; $('scrub').style.display = m === 'watch' && W.frames.length ? '' : 'none';
+  $('banner').className = 'banner'; $('log').innerHTML = '';
+  if (m === 'watch') { W.render(); } else { P.render(); }
+}
+$('tabWatch').onclick = () => setMode('watch'); $('tabPlay').onclick = () => setMode('play');
+
+async function loadOptions() {
+  const o = await (await fetch('/api/options')).json();
+  for (const id of ['wA', 'wB', 'pBot']) $(id).innerHTML = o.bots.map(b => `<option>${esc(b)}</option>`).join('');
+  for (const id of ['wRules', 'pRules']) $(id).innerHTML = o.rulesets.map(r => `<option>${esc(r)}</option>`).join('');
+  $('wB').value = 'Builder';
+}
+
+// ---------------------------------------------------------------- watch mode
+const W = {
+  frames: [], i: 0, timer: null, meta: null,
+  async load() {
+    const q = new URLSearchParams({ seed: $('wSeed').value, a: $('wA').value, b: $('wB').value, rules: $('wRules').value });
+    $('wStatus').textContent = 'loading…';
+    const r = await (await fetch('/api/replay?' + q)).json();
+    if (r.error) { $('wStatus').textContent = r.error; return; }
+    this.stop(); this.frames = r.frames; this.meta = r; this.i = 0;
+    $('scrub').max = this.frames.length - 1; $('scrub').value = 0; $('scrub').style.display = '';
+    $('wPlay').disabled = $('wStep').disabled = false;
+    $('log').innerHTML = ''; $('banner').className = 'banner';
+    $('rulesText').textContent = rulesText(r.rules);
+    this.render();
+  },
+  step() { if (this.i < this.frames.length - 1) { this.i++; this.render(); } else this.stop(); },
+  play() { if (this.timer) return this.stop(); $('wPlay').textContent = '❚❚ Pause'; this.timer = setInterval(() => this.step(), +$('wSpeed').value); },
+  stop() { clearInterval(this.timer); this.timer = null; $('wPlay').textContent = '▶ Play'; },
+  render() {
+    $('whoTop').innerHTML = `<b>P2 · ${esc(this.meta ? this.meta.b : '')}</b>hand`;
+    $('whoBot').innerHTML = `<b>P1 · ${esc(this.meta ? this.meta.a : '')}</b>hand`;
+    if (!this.frames.length) { for (const id of ['topHand','topBridge','river','botBridge','botHand']) $(id).innerHTML = ''; $('wStatus').textContent = 'Load a game to watch.'; return; }
+    const f = this.frames[this.i];
+    $('topHand').innerHTML = f.hands[1].map(c => cardEl(c)).join('');
+    $('botHand').innerHTML = f.hands[0].map(c => cardEl(c)).join('');
+    $('topBridge').innerHTML = bridgeHtml(f.bridges[1]); $('botBridge').innerHTML = bridgeHtml(f.bridges[0]);
+    $('river').innerHTML = f.river.map(c => cardEl(c)).join('');
+    $('pile').textContent = f.pile; $('discard').textContent = f.discard;
+    $('rowBotHand').classList.toggle('turn', f.who === 0); $('rowTopHand').classList.toggle('turn', f.who === 1);
+    $('scrub').value = this.i;
+    const done = this.i === this.frames.length - 1;
+    $('wStatus').innerHTML = `turn <b>${f.turn_count + 1}</b> · frame ${this.i + 1}/${this.frames.length}${done ? ' · finished' : ''}`;
+    // log: all frames up to i
+    $('log').innerHTML = this.frames.slice(1, this.i + 1).map(fr => `<div class="${fr.who === 0 ? 'h' : 'b'}"><b>P${fr.who + 1}</b> · t${fr.turn_count + 1} · ${esc(fr.action)}</div>`).reverse().join('');
+    if (done) {
+      const r = this.meta.result;
+      $('banner').className = 'banner ' + (r === null ? 'draw' : 'draw');
+      $('banner').textContent = r === null ? `Drawn round after ${this.meta.turns} turns` : `P${r + 1} (${r === 0 ? this.meta.a : this.meta.b}) wins after ${this.meta.turns} turns`;
+    } else $('banner').className = 'banner';
+  }
+};
+$('wLoad').onclick = () => W.load(); $('wPlay').onclick = () => W.play(); $('wStep').onclick = () => { W.stop(); W.step(); };
+$('scrub').oninput = e => { W.stop(); W.i = +e.target.value; W.render(); };
+
+// ---------------------------------------------------------------- play mode
+const P = {
+  id: null, st: null, sel: null, pending: null,
+  async newGame() {
+    const body = { rules: $('pRules').value, bot: $('pBot').value, seed: +$('pSeed').value, human_first: $('pFirst').checked };
+    const r = await (await fetch('/api/new', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+    if (r.error) { $('pStatus').textContent = r.error; return; }
+    this.id = r.id; this.st = r.state; this.sel = null; this.pending = null; this.render();
+  },
+  async act(action) {
+    const r = await (await fetch('/api/act', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: this.id, action }) })).json();
+    if (r.error) { $('hint').textContent = r.error; return; }
+    this.st = r.state; this.sel = null; this.pending = null; this.render();
+  },
+  legalFor(kind, card) { return this.st.legal.filter(l => l.action[0] === kind && (!card || key(l.action[1]) === key(card))); },
+  render() {
+    const st = this.st;
+    $('whoTop').innerHTML = `<b>${st ? esc(st.bot) : 'Bot'}</b>hand`; $('whoBot').innerHTML = `<b>You</b>hand`;
+    if (!st) { for (const id of ['topHand','topBridge','river','botBridge','botHand']) $(id).innerHTML = ''; $('pStatus').textContent = 'Start a new game.'; $('actBox').style.display = 'none'; return; }
+    $('rulesText').textContent = rulesText(st.rules);
+    $('topHand').innerHTML = Array.from({ length: st.bot_hand_size }, () => cardEl(null)).join('');
+    const burnable = new Set(this.legalFor(2).map(l => key(l.action[1])));
+    const buildable = new Set(this.legalFor(1).map(l => key(l.action[1])));
+    $('botHand').innerHTML = st.hand.map(c => {
+      const k = key(c); let cls = st.turn === 0 && !st.over ? 'can' : '';
+      if (this.sel && key(this.sel) === k) cls += ' sel';
+      if (burnable.has(k)) cls += ' burnable';
+      return cardEl(c, cls);
+    }).join('');
+    $('topBridge').innerHTML = bridgeHtml(st.bridges.bot); $('botBridge').innerHTML = bridgeHtml(st.bridges.human);
+    $('river').innerHTML = st.river.map((c, i) => cardEl(c, this.pending === 'ford' ? 'target' : '')).join('');
+    $('pile').textContent = st.pile; $('discard').textContent = st.discard;
+    $('rowBotHand').classList.toggle('turn', st.turn === 0 && !st.over); $('rowTopHand').classList.toggle('turn', st.turn === 1 && !st.over);
+    $('pStatus').innerHTML = `turn <b>${st.turn_count + 1}</b> · you are P${st.human_seat} · burns you ${st.burns[st.human_seat - 1]} / bot ${st.burns[2 - st.human_seat]}`;
+    $('log').innerHTML = [...st.log].reverse().map(e => `<div class="${e.who === 'human' ? 'h' : 'b'}"><b>${e.who === 'human' ? 'You' : 'Bot'}</b> · t${e.turn} · ${esc(e.text)}</div>`).join('');
+    if (st.over) {
+      $('actBox').style.display = 'none';
+      $('banner').className = 'banner ' + (st.winner === 'human' ? 'win' : st.winner === 'bot' ? 'lose' : 'draw');
+      $('banner').textContent = st.winner === 'human' ? '🔥 You win the round!' : st.winner === 'bot' ? 'The bot wins this round.' : 'Drawn round — identical bridges.';
+      return;
+    }
+    $('banner').className = 'banner';
+    $('actBox').style.display = st.turn === 0 ? '' : 'none';
+    $('left').textContent = st.left;
+    this.renderActions();
+  },
+  renderActions() {
+    const st = this.st, box = $('actions'); let html = '', hint = 'Click a card in your hand, or choose an action.';
+    const btn = (label, action, cls = '', dis = false) => `<button class="act ${cls}" ${dis ? 'disabled' : ''} data-act='${JSON.stringify(action)}'>${label}</button>`;
+    if (this.pending === 'ford') { hint = `Ford: pick a River card to take in exchange for ${rk(this.sel[0])}${this.sel[1] === 0 ? '♥' : '♠'}.`; html += btn('Cancel', null); }
+    else if (this.sel) {
+      const b = this.legalFor(1, this.sel)[0], u = this.legalFor(2, this.sel)[0], f = this.legalFor(3, this.sel);
+      html += btn(`Build (${b ? b.cost : st.rules.cheap_spans && st.bridges.human.length < st.rules.cheap_spans ? 1 : 2})`, b ? b.action : null, 'primary', !b);
+      html += btn(`Burn (${u ? u.cost : '–'})`, u ? u.action : null, 'ember', !u);
+      html += btn('Ford (1)', f.length ? 'ford' : null, '', !f.length);
+      hint = b ? '' : 'That card can\'t be built on your bridge.'; if (!b && u) hint = 'Burn the bot\'s top card with it.';
+    }
+    const draw = this.legalFor(0)[0], flush = this.legalFor(4)[0], dem = this.legalFor(5)[0];
+    html += btn('Draw (1)', draw ? draw.action : null, '', !draw) + btn('Flush (1)', flush ? flush.action : null, '', !flush) + btn('Demolish (1)', dem ? dem.action : null, '', !dem) + btn('End turn', [9]);
+    box.innerHTML = html; $('hint').textContent = hint;
+  }
+};
+$('pNew').onclick = () => P.newGame();
+document.addEventListener('click', e => {
+  if (mode !== 'play' || !P.st || P.st.over || P.st.turn !== 0) return;
+  const b = e.target.closest('button[data-act]');
+  if (b) {
+    const a = JSON.parse(b.dataset.act);
+    if (a === null) { P.sel = null; P.pending = null; P.render(); return; }
+    if (a === 'ford') { P.pending = 'ford'; P.render(); return; }
+    return P.act(a);
+  }
+  const c = e.target.closest('.card[data-card]');
+  if (!c) return;
+  const card = c.dataset.card.split(':').map(Number);
+  if (P.pending === 'ford' && c.parentElement.id === 'river') {
+    const idx = [...c.parentElement.children].indexOf(c);
+    return P.act([3, P.sel, idx]);
+  }
+  if (c.parentElement.id === 'botHand') { P.sel = (P.sel && key(P.sel) === key(card)) ? null : card; P.pending = null; P.render(); }
+});
+document.addEventListener('keydown', e => { if (mode === 'watch' && e.key === ' ') { e.preventDefault(); W.play(); } if (mode === 'watch' && e.key === 'ArrowRight') { W.stop(); W.step(); } });
+
+loadOptions().then(async () => {
+  const q = new URLSearchParams(location.search);
+  for (const [id, k] of [['wSeed','seed'],['pSeed','seed'],['wA','a'],['wB','b'],['wRules','rules'],['pRules','rules'],['pBot','bot']]) if (q.has(k)) $(id).value = q.get(k);
+  if (q.has('play')) { setMode('play'); await P.newGame(); }
+  else { setMode('watch'); if (q.has('watch')) { await W.load(); if (q.has('frame')) { W.i = Math.min(+q.get('frame'), W.frames.length - 1); W.render(); } } }
+});
+</script>
+</body>
+</html>

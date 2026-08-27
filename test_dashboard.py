@@ -43,3 +43,38 @@ class Server(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class GameApi(unittest.TestCase):
+    def setUp(self):
+        path = os.path.join(SCRATCH, "progress_api.jsonl"); open(path, "w").close()
+        self.srv = HTTPServer(("127.0.0.1", 0), dashboard.make_handler(path))
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+        self.base = f"http://127.0.0.1:{self.srv.server_port}"
+    def tearDown(self): self.srv.shutdown()
+    def post(self, path, obj):
+        req = urllib.request.Request(self.base + path, data=json.dumps(obj).encode(),
+                                     headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            r = urllib.request.urlopen(req); return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+
+    def test_play_page_and_options(self):
+        page = urllib.request.urlopen(self.base + "/play").read().decode()
+        self.assertIn("<title>", page); self.assertIn("/api/", page)
+        opts = json.loads(urllib.request.urlopen(self.base + "/api/options").read())
+        self.assertIn("Equilibrium", opts["bots"]); self.assertIn("Current", opts["rulesets"])
+
+    def test_replay_endpoint(self):
+        r = json.loads(urllib.request.urlopen(self.base + "/api/replay?seed=2&a=Builder&b=Equilibrium&rules=Current").read())
+        self.assertGreater(len(r["frames"]), 5)
+
+    def test_new_and_act(self):
+        code, r = self.post("/api/new", {"rules": "Current", "bot": "Equilibrium", "seed": 1, "human_first": True})
+        self.assertEqual(code, 200); self.assertIn("id", r); self.assertEqual(r["state"]["left"], 2)
+        code, r2 = self.post("/api/act", {"id": r["id"], "action": [0]})
+        self.assertEqual(code, 200); self.assertEqual(r2["state"]["left"], 1)
+        code, r3 = self.post("/api/act", {"id": r["id"], "action": [2, [1, 0]]})
+        self.assertEqual(code, 400); self.assertIn("error", r3)
+        code, r4 = self.post("/api/act", {"id": "nope", "action": [0]})
+        self.assertEqual(code, 404)
