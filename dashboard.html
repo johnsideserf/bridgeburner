@@ -113,19 +113,26 @@ function showTip(e, html) { tip.innerHTML = html; tip.style.display = 'block'; t
 function hideTip() { tip.style.display = 'none'; }
 const fmtT = s => s < 60 ? s.toFixed(0) + 's' : Math.floor(s/60) + 'm ' + (s%60).toFixed(0).padStart(2,'0') + 's';
 
-function parse(text) {
-  const st = { rulesets: [], args: {}, order: [], finals: {}, traj: {}, search: {}, mixes: {}, iters: {}, cur: null, curIter: 0, done: false, t: 0, started: false };
+function freshState() {
+  return { rulesets: [], args: {}, order: [], finals: {}, traj: {}, search: {}, mixes: {}, iters: {}, cur: null, curIter: 0, done: false, t: 0, started: false };
+}
+// Fold one progress event into persistent state (the file is only ever appended to).
+function feed(st, e) {
+  st.t = e.t || st.t;
+  if (e.event === 'start') { st.rulesets = e.rulesets; st.args = e.args; st.started = true; }
+  else if (e.event === 'ruleset') { st.cur = e.name; st.curIter = 0; st.order.push(e.name); st.traj[e.name] = []; st.iters[e.name] = []; }
+  else if (e.event === 'mix') { st.curIter = e.iter; st.mixes[e.ruleset] = e.mix; st.search[e.ruleset + '#' + e.iter] = []; }
+  else if (e.event === 'search') { (st.search[e.ruleset + '#' + e.iter] ||= []).push(e); }
+  else if (e.event === 'iter') { (st.traj[e.ruleset] ||= []).push(e.brw); (st.iters[e.ruleset] ||= []).push(e); }
+  else if (e.event === 'final') { st.finals[e.ruleset] = e; }
+  else if (e.event === 'done') st.done = true;
+}
+function parse(text) {           // kept for whole-file parsing (tests / reload)
+  const st = freshState();
   for (const line of text.split('\n')) {
     if (!line.trim()) continue;
     let e; try { e = JSON.parse(line); } catch { continue; }
-    st.t = e.t || st.t;
-    if (e.event === 'start') { st.rulesets = e.rulesets; st.args = e.args; st.started = true; }
-    else if (e.event === 'ruleset') { st.cur = e.name; st.curIter = 0; st.order.push(e.name); st.traj[e.name] = []; st.iters[e.name] = []; }
-    else if (e.event === 'mix') { st.curIter = e.iter; st.mixes[e.ruleset] = e.mix; st.search[e.ruleset + '#' + e.iter] = []; }
-    else if (e.event === 'search') { (st.search[e.ruleset + '#' + e.iter] ||= []).push(e); }
-    else if (e.event === 'iter') { st.traj[e.ruleset].push(e.brw); st.iters[e.ruleset].push(e); }
-    else if (e.event === 'final') { st.finals[e.ruleset] = e; }
-    else if (e.event === 'done') st.done = true;
+    feed(st, e);
   }
   return st;
 }
@@ -240,12 +247,27 @@ function render(st) {
 }
 
 document.addEventListener('mousemove', e => { const t = e.target.closest && e.target.closest('[data-tip]'); if (t) showTip(e, t.dataset.tip); else hideTip(); });
-let lastLen = -1;
+// Incremental polling: fetch only the bytes appended since the last poll and
+// fold them into persistent state, so a long run doesn't re-parse a growing file.
+let state = freshState(), offset = 0, remainder = '';
+const enc = new TextEncoder();
 async function poll() {
   try {
-    const r = await fetch('progress.jsonl', { cache: 'no-store' });
-    const text = await r.text();
-    if (text.length !== lastLen) { lastLen = text.length; render(parse(text)); }
+    const r = await fetch('progress.jsonl?offset=' + offset, { cache: 'no-store' });
+    const buf = await r.arrayBuffer();
+    if (buf.byteLength) {
+      offset += buf.byteLength;
+      const text = remainder + new TextDecoder().decode(buf);
+      const lines = text.split('\n'); remainder = lines.pop();   // keep a partial trailing line
+      let changed = false;
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let e; try { e = JSON.parse(line); } catch { continue; }
+        if (e.event === 'start' && state.started) state = freshState();  // a new run replaced the file
+        feed(state, e); changed = true;
+      }
+      if (changed) render(state);
+    } else if (!state.started) render(state);
   } catch (err) { document.getElementById('status').textContent = 'cannot reach dashboard server'; }
   setTimeout(poll, 1000);
 }

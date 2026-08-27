@@ -22,7 +22,7 @@ Usage:
 """
 import argparse, json, random, sys, time
 from engine import (GENE_SPACE, GENE_KEYS, rand_genes, gname, winrate, play,
-                    match_stats)
+                    CURRENT_RULES)
 
 SEEDS = {
     #                 burn spend build keep mort ford race demo armor end
@@ -37,7 +37,7 @@ SEEDS = {
 
 # Name -> rules dict. Add candidate rulesets here; select with --rules.
 RULESETS = {
-    "Current":          {"clock": True, "burn_span": 2, "equal_turns": True},  # locked 2026-08-27
+    "Current":          dict(CURRENT_RULES),   # locked 2026-08-27; defined in engine.py
     "NoLimit":          {},
     "KeepPace":         {"slack": 0},
     "Slack1":           {"slack": 1},
@@ -221,6 +221,14 @@ def solve_ruleset(rname, rules, args, rng, prog=None):
         mixdesc = "  ".join(f"{nm}:{p:.0%}" for nm, p in top if p > 0.02)
         print(f" iter {it+1}: nash mix [{mixdesc}]  "
               f"best-response wins {brw:.1%} held-out (search saw {search_w:.0%})")
+        if brw <= args.stop:
+            # Optional-stopping guard: a single low draw is not evidence.
+            # Confirm on a second fresh batch and use the mean of the two.
+            brw2 = evaluate_heldout(br, pool, mix, rules, args.games, rng,
+                                    mult=args.heldout)
+            brw = (brw + brw2) / 2
+            exploit_traj[-1] = brw
+            print(f"   (stop check: second held-out batch {brw2:.1%}, mean {brw:.1%})")
         pool.append(br); names.append(f"BR{it+1}")
         prog.emit("iter", ruleset=rname, iter=it+1, brw=brw, search_w=search_w,
                   mix=mixlist, exploiter=gname(br))
@@ -243,7 +251,9 @@ def solve_ruleset(rname, rules, args, rng, prog=None):
           f"comeback after opp hits 3: {st['comeback3']:.0%}  after 4: {st['comeback4']:.0%}")
     print(f"   stalls {st['stalls']:.0%}   avg game {st['avg_turns']:.0f} turns   "
           f"burns/game {st['burns_per_game']:.1f}   mixture support {support}")
-    row = {"ruleset": rname, "exploit": exploit_traj[-1], "support": support, **st}
+    # A best response scoring below 50% means the search found nothing better
+    # than the mixture itself; exploitability is 50% by definition, not less.
+    row = {"ruleset": rname, "exploit": max(exploit_traj[-1], 0.5), "support": support, **st}
     prog.emit("final", mix=[[nm, round(p, 3), gname(g)] for nm, p, g in
                              zip(names, mix, pool) if p > 0.03],
               trajectory=exploit_traj, **row)

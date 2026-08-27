@@ -174,6 +174,7 @@ function rulesText(r) {
 let mode = 'watch';
 function setMode(m) {
   mode = m;
+  if (m !== 'watch') W.stop();          // never let watch autoplay paint over the play table
   $('tabWatch').classList.toggle('on', m === 'watch'); $('tabPlay').classList.toggle('on', m === 'play');
   $('ctlWatch').style.display = m === 'watch' ? '' : 'none'; $('ctlPlay').style.display = m === 'play' ? '' : 'none';
   $('actBox').style.display = 'none'; $('scrub').style.display = m === 'watch' && W.frames.length ? '' : 'none';
@@ -186,6 +187,7 @@ async function loadOptions() {
   const o = await (await fetch('/api/options')).json();
   for (const id of ['wA', 'wB', 'pBot']) $(id).innerHTML = o.bots.map(b => `<option>${esc(b)}</option>`).join('');
   for (const id of ['wRules', 'pRules']) $(id).innerHTML = o.rulesets.map(r => `<option>${esc(r)}</option>`).join('');
+  for (const id of ['wA', 'pBot']) if (o.bots.includes('Equilibrium')) $(id).value = 'Equilibrium';
   $('wB').value = 'Builder';
 }
 
@@ -235,17 +237,26 @@ $('scrub').oninput = e => { W.stop(); W.i = +e.target.value; W.render(); };
 
 // ---------------------------------------------------------------- play mode
 const P = {
-  id: null, st: null, sel: null, pending: null,
+  id: null, st: null, sel: null, pending: null, busy: false,
   async newGame() {
-    const body = { rules: $('pRules').value, bot: $('pBot').value, seed: +$('pSeed').value, human_first: $('pFirst').checked };
-    const r = await (await fetch('/api/new', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
-    if (r.error) { $('pStatus').textContent = r.error; return; }
-    this.id = r.id; this.st = r.state; this.sel = null; this.pending = null; this.render();
+    if (this.busy) return; this.busy = true; $('pNew').disabled = true;
+    try {
+      const body = { rules: $('pRules').value, bot: $('pBot').value, seed: +$('pSeed').value, human_first: $('pFirst').checked };
+      const r = await (await fetch('/api/new', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+      if (r.error) { $('pStatus').textContent = r.error; return; }
+      this.id = r.id; this.st = r.state; this.sel = null; this.pending = null;
+    } finally { this.busy = false; $('pNew').disabled = false; this.render(); }
   },
   async act(action) {
-    const r = await (await fetch('/api/act', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: this.id, action }) })).json();
-    if (r.error) { $('hint').textContent = r.error; return; }
-    this.st = r.state; this.sel = null; this.pending = null; this.render();
+    // One request in flight at a time: a double-click must not replay the
+    // action on the following turn after the bot has moved.
+    if (this.busy) return; this.busy = true;
+    for (const b of $('actions').querySelectorAll('button')) b.disabled = true;
+    try {
+      const r = await (await fetch('/api/act', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: this.id, action }) })).json();
+      if (r.error) { $('hint').textContent = r.error; return; }
+      this.st = r.state; this.sel = null; this.pending = null;
+    } finally { this.busy = false; this.render(); }
   },
   legalFor(kind, card) { return this.st.legal.filter(l => l.action[0] === kind && (!card || key(l.action[1]) === key(card))); },
   render() {
@@ -297,7 +308,7 @@ const P = {
 };
 $('pNew').onclick = () => P.newGame();
 document.addEventListener('click', e => {
-  if (mode !== 'play' || !P.st || P.st.over || P.st.turn !== 0) return;
+  if (mode !== 'play' || !P.st || P.st.over || P.st.turn !== 0 || P.busy) return;
   const b = e.target.closest('button[data-act]');
   if (b) {
     const a = JSON.parse(b.dataset.act);

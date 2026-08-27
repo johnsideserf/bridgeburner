@@ -82,8 +82,6 @@ class GeneSpace(unittest.TestCase):
         self.assertIn("armor", GENE_SPACE)
         self.assertEqual(GENE_SPACE["armor"], [0, 1])
 
-if __name__ == "__main__":
-    unittest.main()
 
 # ---------------------------------------------------------------- new rules
 from engine import clock_winner, turn_actions
@@ -303,3 +301,6 @@ class LegalActions(unittest.TestCase):
     def test_no_king_below_slot_five_is_still_legal_by_rules(self):
         g = fixed_game(hand0=[(13,RED)], bridge0=[(3,RED)])
         self.assertIn(((1, (13,RED)), 2), legal_actions(g, 0, 2))
+
+if __name__ == "__main__":
+    unittest.main()

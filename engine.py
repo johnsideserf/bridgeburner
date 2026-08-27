@@ -200,20 +200,23 @@ def gname(genes):
 def chain_len(cards, floor):
     return len({c[0] for c in cards if c[0] > floor})
 
-def unseen_higher(g, me, card):
-    """Copies of higher, same-color cards NOT visible to `me` (own hand, river,
-    both bridges). A card with 0 unseen higher cards cannot be burned."""
-    r, col = card
-    total = 2 * (13 - r)                     # 2 copies per rank per color
-    seen = 0
-    for c in g.hands[me]:
-        if c[1] == col and c[0] > r: seen += 1
-    for c in g.river:
-        if c[1] == col and c[0] > r: seen += 1
+def visible_counts(g, me):
+    """Per color, count of visible cards (own hand, river, both bridges) at
+    each rank 1..13. Computed once per decision; see unseen_higher."""
+    vis = [[0] * 14, [0] * 14]
+    for c in g.hands[me]: vis[c[1]][c[0]] += 1
+    for c in g.river: vis[c[1]][c[0]] += 1
     for br in g.bridges:
-        for c in br:
-            if c[1] == col and c[0] > r: seen += 1
-    return total - seen
+        for c in br: vis[c[1]][c[0]] += 1
+    return vis
+
+def unseen_higher(g, me, card, vis=None):
+    """Copies of higher, same-color cards NOT visible to `me`. A card with 0
+    unseen higher cards cannot be burned. Pass `vis` from visible_counts() to
+    avoid rescanning the board per candidate."""
+    r, col = card
+    if vis is None: vis = visible_counts(g, me)
+    return 2 * (13 - r) - sum(vis[col][r+1:])   # 2 copies per rank per color
 
 def policy(genes, g, me, left, burns_done):
     (burn_min, spend_cap, build_trig, keep_chain,
@@ -230,7 +233,8 @@ def policy(genes, g, me, left, burns_done):
             faces = [c for c in cand if c[0] >= 11]
             if faces: cand = faces
         if armor:
-            u = {c: unseen_higher(g, me, c) for c in cand}
+            vis = visible_counts(g, me)
+            u = {c: unseen_higher(g, me, c, vis) for c in cand}
             m = min(u.values())
             cand = [c for c in cand if u[c] == m]
         if keep_chain:

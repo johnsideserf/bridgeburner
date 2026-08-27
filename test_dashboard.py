@@ -3,12 +3,13 @@ from http.server import HTTPServer
 import dashboard
 
 SCRATCH = os.environ.get("BB_SCRATCH", "/tmp")
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 class ProgressEvents(unittest.TestCase):
     def test_solver_writes_progress_events(self):
         path = os.path.join(SCRATCH, "progress_test.jsonl")
         if os.path.exists(path): os.remove(path)
-        subprocess.run([sys.executable, "solve.py", "--games", "4", "--iters", "1",
+        subprocess.run([sys.executable, os.path.join(HERE, "solve.py"), "--games", "4", "--iters", "1",
                         "--restarts", "0", "--heldout", "1", "--rules", "Current",
                         "--progress", path], check=True, capture_output=True)
         events = [json.loads(l) for l in open(path)]
@@ -40,9 +41,6 @@ class Server(unittest.TestCase):
             self.assertEqual(urllib.request.urlopen(base + "/progress.jsonl").headers["Cache-Control"], "no-store")
         finally:
             srv.shutdown()
-
-if __name__ == "__main__":
-    unittest.main()
 
 class GameApi(unittest.TestCase):
     def setUp(self):
@@ -78,3 +76,38 @@ class GameApi(unittest.TestCase):
         self.assertEqual(code, 400); self.assertIn("error", r3)
         code, r4 = self.post("/api/act", {"id": "nope", "action": [0]})
         self.assertEqual(code, 404)
+
+
+class RequestHardening(GameApi):
+    def get(self, path, headers=None):
+        req = urllib.request.Request(self.base + path, headers=headers or {})
+        try:
+            r = urllib.request.urlopen(req); return r.status, r.read()
+        except urllib.error.HTTPError as e:
+            return e.code, e.read()
+
+    def test_foreign_host_or_origin_rejected(self):
+        self.assertEqual(self.get("/api/options", {"Host": "evil.example:8765"})[0], 403)
+        self.assertEqual(self.get("/api/options", {"Origin": "https://evil.example"})[0], 403)
+        self.assertEqual(self.get("/api/options", {"Origin": "http://127.0.0.1:8765"})[0], 200)
+
+    def test_post_requires_json_object(self):
+        req = urllib.request.Request(self.base + "/api/new", data=b'{"rules":"Current"}',
+                                     headers={"Content-Type": "text/plain"}, method="POST")
+        with self.assertRaises(urllib.error.HTTPError) as cm: urllib.request.urlopen(req)
+        self.assertEqual(cm.exception.code, 415)
+        self.assertEqual(self.post("/api/new", [1, 2])[0], 400)
+        self.assertEqual(self.post("/api/new", {"rules": ["Current"]})[0], 400)   # unhashable -> TypeError -> 400
+        self.assertEqual(self.post("/api/new", {"bot": {"x": 1}})[0], 400)
+
+    def test_progress_offset(self):
+        path = os.path.join(SCRATCH, "progress_api.jsonl")
+        open(path, "w").write('{"event":"start"}\n{"event":"done"}\n')
+        full = self.get("/progress.jsonl")[1]
+        tail = self.get("/progress.jsonl?offset=%d" % len('{"event":"start"}\n'))[1]
+        self.assertEqual(tail, b'{"event":"done"}\n')
+        self.assertEqual(self.get("/progress.jsonl?offset=%d" % len(full))[1], b"")
+        self.assertEqual(self.get("/progress.jsonl?offset=junk")[1], full)
+
+if __name__ == "__main__":
+    unittest.main()

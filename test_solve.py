@@ -55,8 +55,6 @@ class Rulesets(unittest.TestCase):
         with self.assertRaises(SystemExit):
             select_rulesets("Nope")
 
-if __name__ == "__main__":
-    unittest.main()
 
 class BestResponseSelection(unittest.TestCase):
     def test_unaccepted_better_trial_does_not_break_selection(self):
@@ -91,3 +89,6 @@ class BestResponseSelection(unittest.TestCase):
             solve.wr_vs_mix = orig
         self.assertEqual(calls[0], (1, 0.55, 0.55))
         self.assertEqual([c[0] for c in calls], list(range(1, len(calls) + 1)))
+
+if __name__ == "__main__":
+    unittest.main()

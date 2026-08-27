@@ -14,13 +14,9 @@ def cs(card):
 def hand_s(cards): return " ".join(cs(c) for c in sorted(cards))
 def bridge_s(cards): return "-".join(cs(c) for c in cards) if cards else "(empty)"
 
-# Equilibrium strategy found for the locked ruleset (confirmation sweep, 3 seeds).
-STRATEGIES = {
-    "Equilibrium": (0, 2, 1, 1, 0, 3, 99, 0, 0, 6),
-    "Builder":     (99, 13, 0, 1, 0, 2, 99, 1, 0, 0),
-    "Hoarder":     (0, 13, 1, 1, 0, 1, 99, 0, 0, 0),
-    "Sniper":      (3, 13, 1, 1, 0, 1, 4, 0, 0, 0),
-}
+# Named strategies are the solver's seed pool (solve.SEEDS); "Equilibrium" is
+# the strategy found for the locked ruleset in the 3-seed confirmation sweep.
+from solve import SEEDS as STRATEGIES
 ACT = {0:"DRAW", 1:"BUILD", 2:"BURN", 3:"FORD", 4:"FLUSH", 5:"DEMOLISH", 9:"PASS"}
 
 def describe(g, me, act, cost):
@@ -54,8 +50,8 @@ def trace(seed=0, a="Equilibrium", b="Equilibrium", rules=None):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--a", default="Equilibrium", choices=STRATEGIES)
-    ap.add_argument("--b", default="Equilibrium", choices=STRATEGIES)
+    ap.add_argument("--a", default="Equilibrium", choices=list(STRATEGIES))
+    ap.add_argument("--b", default="Equilibrium", choices=list(STRATEGIES))
     ap.add_argument("--rules", default="Current")
     args = ap.parse_args()
     from solve import RULESETS
