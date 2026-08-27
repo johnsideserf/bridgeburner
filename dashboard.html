@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bridgeburner Solver</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  color-scheme: light;
+  --surface-1: #fcfcfb; --surface-2: #f3f2ee; --line: #e2e0d9; --grid: #ebe9e3;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #8a8880;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
+  --good: #0ca30c; --critical: #d03b3b; --ref: #8a8880;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-1: #1a1a19; --surface-2: #232321; --line: #34332f; --grid: #2b2a27;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1: #1a1a19; --surface-2: #232321; --line: #34332f; --grid: #2b2a27;
+  --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface-1); color: var(--text-primary);
+  font: 14px/1.45 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline;
+  padding: 16px 24px 8px; border-bottom: 1px solid var(--line); }
+h1 { font-size: 18px; margin: 0; letter-spacing: .02em; }
+#status { color: var(--text-secondary); }
+#status b { color: var(--text-primary); font-weight: 600; }
+.pips { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 24px 0; }
+.pip { font-size: 12px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--line);
+  color: var(--text-secondary); background: var(--surface-2); }
+.pip.done { border-color: var(--good); color: var(--text-primary); }
+.pip.cur { border-color: var(--s2); color: var(--text-primary); font-weight: 600; }
+main { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 16px; padding: 16px 24px 32px; }
+.card { background: var(--surface-1); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+.card.wide { grid-column: 1 / -1; }
+.card h2 { font-size: 13px; font-weight: 600; margin: 0 0 2px; }
+.card .sub { font-size: 12px; color: var(--text-secondary); margin: 0 0 8px; }
+svg { width: 100%; height: auto; display: block; overflow: visible; }
+.grid line { stroke: var(--grid); stroke-width: 1; }
+.axis text { fill: var(--text-muted); font-size: 11px; }
+.axis line, .axis path { stroke: var(--line); }
+.ref { stroke: var(--ref); stroke-dasharray: 3 3; stroke-width: 1; }
+.lbl { font-size: 11px; fill: var(--text-secondary); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; }
+td.num { text-align: right; }
+.bar { position: relative; display: inline-block; width: 90px; height: 10px; background: var(--surface-2); border-radius: 2px; vertical-align: middle; margin-left: 6px; }
+.bar > b { position: absolute; top: 0; height: 100%; border-radius: 2px; background: var(--s1); }
+.bar > s { position: absolute; top: -2px; width: 1px; height: 14px; background: var(--ref); }
+tr.cur td { background: var(--surface-2); }
+.mix { display: grid; grid-template-columns: max-content 1fr max-content; gap: 4px 10px; align-items: center; font-size: 12px; }
+.mix .b { height: 10px; background: var(--s1); border-radius: 2px; }
+.mix .n { color: var(--text-secondary); }
+.mix .p { text-align: right; font-variant-numeric: tabular-nums; }
+.genes { font: 11px/1.4 ui-monospace, Menlo, monospace; color: var(--text-secondary); margin-top: 8px; word-break: break-all; }
+#tip { position: fixed; pointer-events: none; background: var(--surface-1); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 8px; font-size: 12px; color: var(--text-primary); box-shadow: 0 2px 8px rgba(0,0,0,.15); display: none; z-index: 9; }
+.empty { color: var(--text-muted); font-size: 12px; padding: 24px 0; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Bridgeburner solver</h1>
+  <div id="status">waiting for <code>progress.jsonl</code>…</div>
+</header>
+<div class="pips" id="pips"></div>
+<main>
+  <section class="card">
+    <h2>Best-response search — live</h2>
+    <p class="sub" id="searchSub">Each dot is one candidate strategy evaluated against the current Nash mix; the line is the best so far.</p>
+    <div id="search"></div>
+  </section>
+  <section class="card">
+    <h2>Exploitability by iteration</h2>
+    <p class="sub">Held-out win rate of the best response vs. the Nash mix. 50% = unexploitable within the policy space.</p>
+    <div id="traj"></div>
+    <div class="legend" id="trajLegend"></div>
+  </section>
+  <section class="card">
+    <h2>Current Nash mixture</h2>
+    <p class="sub" id="mixSub">Strategy weights the solver is trying to exploit right now.</p>
+    <div id="mix"></div>
+  </section>
+  <section class="card wide">
+    <h2>Ruleset comparison</h2>
+    <p class="sub">Rows fill in as each ruleset finishes. Targets: exploit ≈ 50%, P1 win ≈ 50%, high comebacks, 0% stalls, support &gt; 1.</p>
+    <div id="table"></div>
+  </section>
+</main>
+<div id="tip"></div>
+<script>
+const SLOTS = ['--s1','--s2','--s3','--s4','--s5','--s6','--s7','--s8'];
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const pct = x => (x*100).toFixed(x < 0.995 && x > 0.005 ? 1 : 0) + '%';
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const tip = document.getElementById('tip');
+function showTip(e, html) { tip.innerHTML = html; tip.style.display = 'block'; tip.style.left = (e.clientX + 12) + 'px'; tip.style.top = (e.clientY + 12) + 'px'; }
+function hideTip() { tip.style.display = 'none'; }
+const fmtT = s => s < 60 ? s.toFixed(0) + 's' : Math.floor(s/60) + 'm ' + (s%60).toFixed(0).padStart(2,'0') + 's';
+
+function parse(text) {
+  const st = { rulesets: [], args: {}, order: [], finals: {}, traj: {}, search: {}, mixes: {}, iters: {}, cur: null, curIter: 0, done: false, t: 0, started: false };
+  for (const line of text.split('\n')) {
+    if (!line.trim()) continue;
+    let e; try { e = JSON.parse(line); } catch { continue; }
+    st.t = e.t || st.t;
+    if (e.event === 'start') { st.rulesets = e.rulesets; st.args = e.args; st.started = true; }
+    else if (e.event === 'ruleset') { st.cur = e.name; st.curIter = 0; st.order.push(e.name); st.traj[e.name] = []; st.iters[e.name] = []; }
+    else if (e.event === 'mix') { st.curIter = e.iter; st.mixes[e.ruleset] = e.mix; st.search[e.ruleset + '#' + e.iter] = []; }
+    else if (e.event === 'search') { (st.search[e.ruleset + '#' + e.iter] ||= []).push(e); }
+    else if (e.event === 'iter') { st.traj[e.ruleset].push(e.brw); st.iters[e.ruleset].push(e); }
+    else if (e.event === 'final') { st.finals[e.ruleset] = e; }
+    else if (e.event === 'done') st.done = true;
+  }
+  return st;
+}
+
+function axisY(x0, x1, y, v0, v1, ticks, h, fmt) {
+  let s = '<g class="grid">';
+  for (const t of ticks) { const yy = y(t); s += `<line x1="${x0}" x2="${x1}" y1="${yy}" y2="${yy}"/>`; }
+  s += '</g><g class="axis">';
+  for (const t of ticks) s += `<text x="${x0 - 6}" y="${y(t) + 4}" text-anchor="end">${fmt(t)}</text>`;
+  return s + '</g>';
+}
+
+function renderSearch(st) {
+  const el = document.getElementById('search');
+  const key = st.cur ? st.cur + '#' + st.curIter : null;
+  const pts = key ? (st.search[key] || []) : [];
+  document.getElementById('searchSub').textContent = st.cur
+    ? `${st.cur} · iteration ${st.curIter} · ${pts.length} candidates evaluated`
+    : 'Each dot is one candidate strategy evaluated against the current Nash mix; the line is the best so far.';
+  if (!pts.length) { el.innerHTML = '<div class="empty">no search in progress</div>'; return; }
+  const W = 520, H = 220, L = 44, R = 12, T = 12, B = 28;
+  const n = Math.max(pts.length, 20);
+  const x = i => L + (i - 1) / (n - 1) * (W - L - R);
+  const y = v => T + (1 - v) * (H - T - B);
+  let s = `<svg viewBox="0 0 ${W} ${H}">`;
+  s += axisY(L, W - R, y, 0, 1, [0, .25, .5, .75, 1], H, v => (v*100) + '%');
+  s += `<line class="ref" x1="${L}" x2="${W - R}" y1="${y(.5)}" y2="${y(.5)}"/>`;
+  s += `<path fill="none" stroke="${css('--s2')}" stroke-width="2" stroke-linejoin="round" d="${pts.map((p, i) => (i ? 'L' : 'M') + x(p.n).toFixed(1) + ' ' + y(p.best).toFixed(1)).join('')}"/>`;
+  for (const p of pts) s += `<circle cx="${x(p.n).toFixed(1)}" cy="${y(p.w).toFixed(1)}" r="3" fill="${css('--s1')}" stroke="${css('--surface-1')}" stroke-width="1"/>`;
+  for (const p of pts) s += `<circle cx="${x(p.n).toFixed(1)}" cy="${y(p.w).toFixed(1)}" r="9" fill="transparent" data-tip="candidate ${p.n}: ${pct(p.w)} (best ${pct(p.best)})"/>`;
+  const last = pts[pts.length - 1];
+  s += `<text class="lbl" x="${Math.min(x(last.n), W - R - 60).toFixed(1)}" y="${(y(last.best) - 8).toFixed(1)}">best ${pct(last.best)}</text>`;
+  s += `<g class="axis"><text x="${L}" y="${H - 8}">candidate 1</text><text x="${W - R}" y="${H - 8}" text-anchor="end">${n}</text></g></svg>`;
+  el.innerHTML = s;
+}
+
+function renderTraj(st) {
+  const el = document.getElementById('traj'), lg = document.getElementById('trajLegend');
+  const names = st.order.filter(nm => st.traj[nm] && st.traj[nm].length);
+  if (!names.length) { el.innerHTML = '<div class="empty">no iterations finished yet</div>'; lg.innerHTML = ''; return; }
+  const shown = names.slice(0, 8);
+  const W = 520, H = 220, L = 44, R = 130, T = 12, B = 28;
+  const maxIt = Math.max(2, ...shown.map(nm => st.traj[nm].length));
+  const lo = Math.min(.4, ...shown.flatMap(nm => st.traj[nm])), hi = Math.max(.7, ...shown.flatMap(nm => st.traj[nm]));
+  const x = i => L + (i - 1) / (maxIt - 1) * (W - L - R);
+  const y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  const ticks = []; for (let v = Math.ceil(lo * 10) / 10; v <= hi + 1e-9; v += .1) ticks.push(+v.toFixed(2));
+  let s = `<svg viewBox="0 0 ${W} ${H}">` + axisY(L, W - R, y, lo, hi, ticks, H, v => Math.round(v*100) + '%');
+  s += `<line class="ref" x1="${L}" x2="${W - R}" y1="${y(.5)}" y2="${y(.5)}"/>`;
+  const ends = [];
+  shown.forEach((nm, k) => {
+    const col = css(SLOTS[k]), tr = st.traj[nm];
+    s += `<path fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" d="${tr.map((v, i) => (i ? 'L' : 'M') + x(i + 1).toFixed(1) + ' ' + y(v).toFixed(1)).join('')}"/>`;
+    tr.forEach((v, i) => { s += `<circle cx="${x(i + 1).toFixed(1)}" cy="${y(v).toFixed(1)}" r="4" fill="${col}" stroke="${css('--surface-1')}" stroke-width="2"/>`; });
+    tr.forEach((v, i) => { s += `<circle cx="${x(i + 1).toFixed(1)}" cy="${y(v).toFixed(1)}" r="10" fill="transparent" data-tip="${esc(nm)} · iter ${i + 1}: ${pct(v)}"/>`; });
+    ends.push({ nm, yv: y(tr[tr.length - 1]), xv: x(tr.length), col });
+  });
+  ends.sort((a, b) => a.yv - b.yv);
+  for (let i = 1; i < ends.length; i++) if (ends[i].yv - ends[i - 1].yv < 12) ends[i].yv = ends[i - 1].yv + 12;
+  const short = n => n.length > 22 ? n.slice(0, 21) + '…' : n;
+  for (const e of ends) s += `<text class="lbl" x="${(W - R + 6)}" y="${(e.yv + 4).toFixed(1)}" data-tip="${esc(e.nm)}">${esc(short(e.nm))}</text>`;
+  s += `<g class="axis">`; for (let i = 1; i <= maxIt; i++) s += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${i}</text>`;
+  s += `<text x="${(L + W - R) / 2}" y="${H + 2}" text-anchor="middle" style="font-size:10px">iteration</text></g></svg>`;
+  el.innerHTML = s;
+  lg.innerHTML = shown.map((nm, k) => `<span><i style="background:${css(SLOTS[k])}"></i>${esc(nm)}</span>`).join('') +
+    (names.length > 8 ? `<span>+${names.length - 8} more (table)</span>` : '');
+}
+
+function renderMix(st) {
+  const el = document.getElementById('mix'), sub = document.getElementById('mixSub');
+  const nm = st.cur; const mix = nm ? (st.finals[nm] ? st.finals[nm].mix : st.mixes[nm]) : null;
+  if (!mix || !mix.length) { el.innerHTML = '<div class="empty">no mixture yet</div>'; return; }
+  sub.textContent = st.finals[nm] ? `${nm} · final mixture` : `${nm} · iteration ${st.curIter}`;
+  const sorted = [...mix].sort((a, b) => b[1] - a[1]);
+  let s = '<div class="mix">';
+  for (const m of sorted) s += `<span class="n">${esc(m[0])}</span><div><div class="b" style="width:${(m[1]*100).toFixed(1)}%"></div></div><span class="p">${pct(m[1])}</span>`;
+  s += '</div>';
+  const top = sorted[0];
+  if (top.length > 2) s += `<div class="genes">${esc(top[0])}: ${esc(top[2])}</div>`;
+  else { const last = st.iters[nm] && st.iters[nm][st.iters[nm].length - 1]; if (last) s += `<div class="genes">last exploiter: ${esc(last.exploiter)}</div>`; }
+  el.innerHTML = s;
+}
+
+function bar(v, max, marker) {
+  const w = Math.max(0, Math.min(1, v / max)) * 100;
+  return `<span class="bar"><b style="width:${w.toFixed(1)}%"></b>${marker != null ? `<s style="left:${(marker / max * 100).toFixed(1)}%"></s>` : ''}</span>`;
+}
+
+function renderTable(st) {
+  const el = document.getElementById('table');
+  if (!st.rulesets.length) { el.innerHTML = '<div class="empty">waiting for the solver to start</div>'; return; }
+  let s = '<div style="overflow-x:auto"><table><thead><tr><th>Ruleset</th><th>Exploit</th><th>P1 win</th><th>Comeback @3</th><th>Comeback @4</th><th>Stalls</th><th class="num">Turns</th><th class="num">Burns</th><th class="num">Support</th><th>Trajectory</th></tr></thead><tbody>';
+  for (const nm of st.rulesets) {
+    const f = st.finals[nm], cur = nm === st.cur && !f;
+    const tr = st.traj[nm] || [];
+    if (f) {
+      s += `<tr><td>${esc(nm)}</td><td>${pct(f.exploit)}${bar(f.exploit, 1, .5)}</td><td>${pct(f.first_player)}${bar(f.first_player, 1, .5)}</td><td>${pct(f.comeback3)}${bar(f.comeback3, .5)}</td><td>${pct(f.comeback4)}${bar(f.comeback4, .5)}</td><td>${pct(f.stalls)}${bar(f.stalls, .5)}</td><td class="num">${f.avg_turns.toFixed(0)}</td><td class="num">${f.burns_per_game.toFixed(1)}</td><td class="num">${f.support}</td><td>${tr.map(pct).join(' → ')}</td></tr>`;
+    } else {
+      s += `<tr class="${cur ? 'cur' : ''}"><td>${esc(nm)}</td><td colspan="8" style="color:var(--text-muted)">${cur ? `running · iteration ${st.curIter}` : st.done ? '—' : 'queued'}</td><td>${tr.map(pct).join(' → ')}</td></tr>`;
+    }
+  }
+  el.innerHTML = s + '</tbody></table></div>';
+}
+
+function render(st) {
+  const status = document.getElementById('status');
+  if (!st.started) status.innerHTML = 'waiting for <code>progress.jsonl</code>…';
+  else if (st.done) status.innerHTML = `<b>done</b> · ${st.rulesets.length} rulesets · ${fmtT(st.t)} · games/eval ${st.args.games}, held-out ×${st.args.heldout}, seed ${st.args.seed}`;
+  else status.innerHTML = `<b>running</b> ${esc(st.cur || '')} · iteration ${st.curIter}/${st.args.iters} · ${fmtT(st.t)} elapsed · games/eval ${st.args.games}, held-out ×${st.args.heldout}, seed ${st.args.seed}`;
+  document.getElementById('pips').innerHTML = st.rulesets.map(nm => `<span class="pip ${st.finals[nm] ? 'done' : nm === st.cur ? 'cur' : ''}">${esc(nm)}</span>`).join('');
+  renderSearch(st); renderTraj(st); renderMix(st); renderTable(st);
+}
+
+document.addEventListener('mousemove', e => { const t = e.target.closest && e.target.closest('[data-tip]'); if (t) showTip(e, t.dataset.tip); else hideTip(); });
+let lastLen = -1;
+async function poll() {
+  try {
+    const r = await fetch('progress.jsonl', { cache: 'no-store' });
+    const text = await r.text();
+    if (text.length !== lastLen) { lastLen = text.length; render(parse(text)); }
+  } catch (err) { document.getElementById('status').textContent = 'cannot reach dashboard server'; }
+  setTimeout(poll, 1000);
+}
+poll();
+</script>
+</body>
+</html>

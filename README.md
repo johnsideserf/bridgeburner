@@ -42,6 +42,8 @@ Ties compare the top card, then the next card down. Best of three.
   exploitability isn't search noise) → exploitability trajectory,
   first-player advantage, comeback/stall rates, burns/game, mixture support.
   Rulesets live in `RULESETS`; pick with `--rules Name,Name`.
+- `dashboard.py` + `dashboard.html` — live browser dashboard for solver runs
+  (`solve.py --progress` streams JSON-lines events; the page polls them).
 - `trace_game.py` — prints one game turn by turn (`--seed N --a Builder --b Equilibrium --rules NoLimit`).
 - `test_*.py` — pytest suite.
 - `sim.py`, `sim2.py` — earlier heuristic-bot tournaments (rounds 1 & 2).
@@ -79,6 +81,8 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python solve.py                            # all rulesets (~2 min)
 .venv/bin/python solve.py --rules NoLimit,BurnCost2   # subset (prefix match)
 .venv/bin/python solve.py --games 500 --iters 8 --restarts 5 --heldout 8  # thorough
+.venv/bin/python dashboard.py -- --rules Current,NoLimit --games 300   # live dashboard (opens browser)
+.venv/bin/python trace_game.py --seed 3                              # watch one game
 .venv/bin/python make_rules.py                       # rebuild the PDF
 ```
 

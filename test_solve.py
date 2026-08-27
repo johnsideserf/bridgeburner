@@ -57,3 +57,37 @@ class Rulesets(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class BestResponseSelection(unittest.TestCase):
+    def test_unaccepted_better_trial_does_not_break_selection(self):
+        # Pool member scores 0.6; one neighbour scores 0.61 (above it, but below
+        # the +0.02 acceptance threshold); everything else 0.4. The search must
+        # return the pool member with its own score, not None / a worse genome.
+        base = solve.SEEDS["Builder"]
+        from engine import GENE_SPACE, GENE_KEYS
+        ki = 0; alt = [v for v in GENE_SPACE[GENE_KEYS[ki]] if v != base[ki]][0]
+        neighbour = tuple(alt if i == ki else v for i, v in enumerate(base))
+        seen = []
+        def stub(genes, pool, mix, rules, n, rng):
+            seen.append(genes)
+            return 0.6 if genes == base else 0.61 if genes == neighbour else 0.4
+        orig = solve.wr_vs_mix; solve.wr_vs_mix = stub
+        try:
+            g, w = solve.best_response([base], [1.0], {}, random.Random(0), games=1,
+                                       restarts=0, passes=1, on_trial=lambda n, w, b: None)
+        finally:
+            solve.wr_vs_mix = orig
+        self.assertIn(neighbour, seen)
+        self.assertEqual((g, w), (base, 0.6))
+
+    def test_on_trial_reports_running_best(self):
+        base = solve.SEEDS["Builder"]
+        calls = []
+        orig = solve.wr_vs_mix; solve.wr_vs_mix = lambda *a: 0.55
+        try:
+            solve.best_response([base], [1.0], {}, random.Random(0), games=1, restarts=0,
+                                passes=1, on_trial=lambda n, w, b: calls.append((n, w, b)))
+        finally:
+            solve.wr_vs_mix = orig
+        self.assertEqual(calls[0], (1, 0.55, 0.55))
+        self.assertEqual([c[0] for c in calls], list(range(1, len(calls) + 1)))

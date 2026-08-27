@@ -20,7 +20,7 @@ Usage:
   python solve.py --rules NoLimit,BurnCost2    # prefix match on names
   python solve.py --games 500 --iters 8 --restarts 5 --heldout 6
 """
-import argparse, random, sys
+import argparse, json, random, sys, time
 from engine import (GENE_SPACE, GENE_KEYS, rand_genes, gname, winrate, play,
                     match_stats)
 
@@ -62,6 +62,16 @@ RULESETS = {
     "Clock+Span4+Equal":    {"clock": True, "burn_span": 4, "equal_turns": True},
     "Clock+Span3+BurnCost2+Equal": {"clock": True, "burn_span": 3, "burn_cost2": True, "equal_turns": True},
 }
+
+class Progress:
+    """Append JSON-lines events to a file (or nowhere) for the live dashboard."""
+    def __init__(self, path=None):
+        self.f = open(path, "w") if path else None
+        self.t0 = time.time()
+    def emit(self, event, **kw):
+        if not self.f: return
+        kw["event"] = event; kw["t"] = round(time.time() - self.t0, 2)
+        self.f.write(json.dumps(kw) + "\n"); self.f.flush()
 
 def select_rulesets(spec):
     """'all' or comma-separated prefixes of RULESETS names."""
@@ -126,16 +136,25 @@ def evaluate_heldout(genes, pool, mix, rules, games, rng, mult=4):
     """Unbiased re-evaluation of a candidate on games*mult fresh games."""
     return wr_vs_mix(genes, pool, mix, rules, games*mult, rng)
 
-def best_response(pool, mix, rules, rng, games, restarts, passes=2, accept=0.02):
+def best_response(pool, mix, rules, rng, games, restarts, passes=2, accept=0.02,
+                  on_trial=None):
     """Coordinate-ascent search over the full gene space vs the mixture.
     Returns (genes, search_winrate) -- the search winrate is optimistically
-    biased; call evaluate_heldout on the result."""
-    best_g, best_w = None, -1.0
+    biased; call evaluate_heldout on the result.
+    on_trial(n, w, best_seen) is called after every evaluated candidate."""
+    best_g, best_w = None, -1.0          # best *accepted* result across starts
+    n_trials = 0; best_seen = -1.0       # for progress reporting only
+    def evaluate(genes):
+        nonlocal n_trials, best_seen
+        tw = wr_vs_mix(genes, pool, mix, rules, games, rng)
+        n_trials += 1; best_seen = max(best_seen, tw)
+        if on_trial: on_trial(n_trials, tw, best_seen)
+        return tw
     starts = [rand_genes(rng) for _ in range(restarts)]
     starts.append(pool[max(range(len(pool)), key=lambda i: mix[i])])
     for g0 in starts:
         g = list(g0)
-        w = wr_vs_mix(tuple(g), pool, mix, rules, games, rng)
+        w = evaluate(tuple(g))
         for _ in range(passes):
             keys = list(range(len(GENE_KEYS)))
             rng.shuffle(keys)
@@ -144,7 +163,7 @@ def best_response(pool, mix, rules, rng, games, restarts, passes=2, accept=0.02)
                 for val in GENE_SPACE[key]:
                     if val == g[ki]: continue
                     trial = g[:]; trial[ki] = val
-                    tw = wr_vs_mix(tuple(trial), pool, mix, rules, games, rng)
+                    tw = evaluate(tuple(trial))
                     if tw > w + accept:
                         g, w = trial, tw
         if w > best_w:
@@ -175,8 +194,10 @@ def selfplay_stats(pool, mix, rules, rng, n):
             "stalls": stalls/n, "avg_turns": tot_turns/n,
             "burns_per_game": burns/n}
 
-def solve_ruleset(rname, rules, args, rng):
+def solve_ruleset(rname, rules, args, rng, prog=None):
+    prog = prog or Progress()
     print(f"\n{'='*68}\n{rname}  {rules}\n{'='*68}")
+    prog.emit("ruleset", name=rname, rules=rules)
     pool = [tuple(v) for v in SEEDS.values()]
     names = list(SEEDS)
     exploit_traj = []
@@ -184,8 +205,12 @@ def solve_ruleset(rname, rules, args, rng):
     for it in range(args.iters):
         M = payoff_matrix(pool, rules, args.games, rng, prev=M)
         mix = solve_matrix(M)
+        mixlist = [[nm, round(p, 3)] for nm, p in zip(names, mix) if p > 0.02]
+        prog.emit("mix", ruleset=rname, iter=it+1, mix=mixlist)
         br, search_w = best_response(pool, mix, rules, rng,
-                                     args.games, args.restarts)
+                                     args.games, args.restarts,
+                                     on_trial=lambda n, w, b: prog.emit(
+                                         "search", ruleset=rname, iter=it+1, n=n, w=w, best=b))
         brw = evaluate_heldout(br, pool, mix, rules, args.games, rng,
                                mult=args.heldout)
         exploit_traj.append(brw)
@@ -194,6 +219,8 @@ def solve_ruleset(rname, rules, args, rng):
         print(f" iter {it+1}: nash mix [{mixdesc}]  "
               f"best-response wins {brw:.1%} held-out (search saw {search_w:.0%})")
         pool.append(br); names.append(f"BR{it+1}")
+        prog.emit("iter", ruleset=rname, iter=it+1, brw=brw, search_w=search_w,
+                  mix=mixlist, exploiter=gname(br))
         if brw <= args.stop:
             print(f"   -> mixture is near-unexploitable within this "
                   f"policy space (<= {args.stop:.0%}); stopping early")
@@ -213,12 +240,19 @@ def solve_ruleset(rname, rules, args, rng):
           f"comeback after opp hits 3: {st['comeback3']:.0%}  after 4: {st['comeback4']:.0%}")
     print(f"   stalls {st['stalls']:.0%}   avg game {st['avg_turns']:.0f} turns   "
           f"burns/game {st['burns_per_game']:.1f}   mixture support {support}")
-    return {"ruleset": rname, "exploit": exploit_traj[-1], "support": support, **st}
+    row = {"ruleset": rname, "exploit": exploit_traj[-1], "support": support, **st}
+    prog.emit("final", mix=[[nm, round(p, 3), gname(g)] for nm, p, g in
+                             zip(names, mix, pool) if p > 0.03],
+              trajectory=exploit_traj, **row)
+    return row
 
 def run(args):
     rng = random.Random(args.seed)
-    rows = [solve_ruleset(n, RULESETS[n], args, rng)
-            for n in select_rulesets(args.rules)]
+    prog = Progress(args.progress)
+    sel = select_rulesets(args.rules)
+    prog.emit("start", rulesets=sel, args=vars(args))
+    rows = [solve_ruleset(n, RULESETS[n], args, rng, prog) for n in sel]
+    prog.emit("done")
     print(f"\n{'='*68}\nSUMMARY (lower exploit, ~50% first-player, higher comeback, "
           f"support>1 = better)\n{'='*68}")
     print(f"{'ruleset':18s} {'exploit':>7s} {'P1 win':>7s} {'cb@3':>5s} {'cb@4':>5s} "
@@ -242,4 +276,6 @@ if __name__ == "__main__":
     ap.add_argument("--rules", default="all",
                     help="'all' or comma-separated ruleset name prefixes")
     ap.add_argument("--seed", type=int, default=3)
+    ap.add_argument("--progress", default=None,
+                    help="write JSON-lines progress events here (for dashboard.py)")
     run(ap.parse_args())
