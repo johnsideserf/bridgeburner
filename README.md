@@ -31,6 +31,7 @@ discards. First 5-card bridge wins; best of three.
   trajectory, comeback and stall rates.
 - `sim.py`, `sim2.py` — earlier heuristic-bot tournaments (rounds 1 & 2).
 - `make_rules.py` — regenerates `Bridgeburner_Rules.pdf` (reportlab).
+- `RULES.md` — plain-text rulebook (same content as the PDF; keep in sync).
 
 ## Key findings so far
 
