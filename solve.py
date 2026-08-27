@@ -61,6 +61,9 @@ RULESETS = {
     "Clock+Span3+Equal":    {"clock": True, "burn_span": 3, "equal_turns": True},
     "Clock+Span4+Equal":    {"clock": True, "burn_span": 4, "equal_turns": True},
     "Clock+Span3+BurnCost2+Equal": {"clock": True, "burn_span": 3, "burn_cost2": True, "equal_turns": True},
+    "Current+Cheap2":       {"clock": True, "burn_span": 2, "equal_turns": True, "cheap_spans": 2},
+    "Current+Hand7":        {"clock": True, "burn_span": 2, "equal_turns": True, "hand_limit": 7},
+    "Current+Cheap2+Hand7": {"clock": True, "burn_span": 2, "equal_turns": True, "cheap_spans": 2, "hand_limit": 7},
 }
 
 class Progress:

@@ -16,6 +16,8 @@ Rules dict keys:
                round until the second player has had their turn too; both
                finished -> higher top card, then next card down, ... ; identical -> draw
   burn_span  : int  = torch card must be at most this many ranks above target
+  cheap_spans: int  = building costs 1 action while your bridge has fewer
+                      than this many cards (2 actions after)
 """
 import random
 
@@ -58,6 +60,9 @@ class G:
     def burn_cost(self, target_rank):
         if self.rules.get("burn_cost2"): return 2
         return 2 if target_rank >= 11 else 1
+
+    def build_cost(self, me):
+        return 1 if len(self.bridges[me]) < self.rules.get("cheap_spans", 0) else 2
 
     def pace_ok(self, me):
         s = self.rules.get("slack")
@@ -111,10 +116,11 @@ def do(g, me, act):
         card = act[1]; b = g.bridges[me]
         floor = b[-1][0] if b else 0
         if card not in hand or card[0] <= floor: return None
+        cost = g.build_cost(me)
         hand.remove(card); b.append(card)
         if len(b) == 3 and g.first_to3 is None: g.first_to3 = me
         if len(b) == 4 and g.first_to4 is None: g.first_to4 = me
-        return 2
+        return cost
     if k == 2:                                   # burn card
         card = act[1]; opp = 1 - me
         if not g.bridges[opp] or not g.pace_ok(me): return None
@@ -213,8 +219,9 @@ def policy(genes, g, me, left, burns_done):
             return max(cand, key=lambda c: (chain_len(hand, c[0]), -c[0]))
         return min(cand, key=lambda c: c[0])
 
+    bcost = g.build_cost(me)
     # 0. win now
-    if mylen == 4 and b and left >= 2:
+    if mylen == 4 and b and left >= bcost:
         return (1, min(b, key=lambda c: c[0]))
     # 1. burn
     if olen >= burn_min:
@@ -225,7 +232,7 @@ def policy(genes, g, me, left, burns_done):
             if card[0] <= tr + spend_cap and g.burn_cost(tr) <= left:
                 return (2, card)
     # 2. build
-    if b and left >= 2:
+    if b and left >= bcost:
         need = 5 - mylen
         ok = (build_trig == 0 or
               (build_trig == 1 and chain_len(hand, floor) >= need) or

@@ -254,3 +254,24 @@ class Locked(unittest.TestCase):
         self.assertGreater(len(seen), 5)
         self.assertEqual(seen[0][0], 0)
         self.assertTrue(all(c in (1, 2, 99) for _, _, c in seen))
+
+# ---------------------------------------------------------------- cheap early spans
+class CheapSpans(unittest.TestCase):
+    def test_build_cost_one_for_first_two_spans_then_two(self):
+        g = fixed_game(hand0=[(3,RED),(5,RED),(7,RED)], rules={"cheap_spans": 2})
+        self.assertEqual(g.build_cost(0), 1)
+        self.assertEqual(do(g, 0, (1, (3,RED))), 1)
+        self.assertEqual(do(g, 0, (1, (5,RED))), 1)
+        self.assertEqual(g.build_cost(0), 2)
+        self.assertEqual(do(g, 0, (1, (7,RED))), 2)
+
+    def test_default_build_cost_is_two(self):
+        g = fixed_game(hand0=[(3,RED)])
+        self.assertEqual(g.build_cost(0), 2)
+        self.assertEqual(do(g, 0, (1, (3,RED))), 2)
+
+    def test_policy_builds_with_one_action_left_when_cheap(self):
+        g = fixed_game(hand0=[(3,RED),(9,BLK)], rules={"cheap_spans": 2})
+        self.assertEqual(policy(genes(), g, 0, 1, 0), (1, (3,RED)))
+        g2 = fixed_game(hand0=[(3,RED),(9,BLK)])
+        self.assertNotEqual(policy(genes(), g2, 0, 1, 0)[0], 1)

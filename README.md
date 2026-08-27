@@ -32,7 +32,8 @@ Ties compare the top card, then the next card down. Best of three.
   cards for the second player), `first_turn_actions`, `equal_turns` (second
   player always gets a reply turn; both finished → compare top card, then
   next card down),
-  `burn_span` (torch must be within N ranks of the target). Policy never builds a
+  `burn_span` (torch must be within N ranks of the target), `cheap_spans`
+  (build costs 1 while your bridge has fewer than N cards). Policy never builds a
   King below slot 5 (dead end), demolishes when stuck, and has an `armor`
   gene (color-aware builds). `match_stats()` reports first-player win rate,
   burns/game, stalls, turns.
