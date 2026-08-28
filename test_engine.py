@@ -179,9 +179,10 @@ class BurnSpan(unittest.TestCase):
 class EqualTurns(unittest.TestCase):
     def four(self, col): return [(2,col),(3,col),(4,col),(5,col)]
 
-    def go(self, hand1, rules):
+    def go(self, hand1, rules, empty_pile=False):
         g = fixed_game(hand0=[(6,RED)], bridge0=self.four(RED),
                        hand1=hand1, bridge1=self.four(BLK), rules=rules)
+        if empty_pile: g.draw = []; g.discard = []
         return play(genes(burn_min=99), genes(burn_min=99), rules, random.Random(0), g=g)
 
     def test_without_rule_p1_wins_immediately(self):
@@ -199,7 +200,7 @@ class EqualTurns(unittest.TestCase):
         self.assertEqual(g.turn_count, 1)
 
     def test_p2_fails_to_finish_p1_wins(self):
-        r, g = self.go([], {"equal_turns": True})
+        r, g = self.go([], {"equal_turns": True}, empty_pile=True)   # P2 cannot even draw a torch
         self.assertEqual((r, g.turn_count), (0, 2))   # P2's full turn elapsed
 
     def test_p2_burns_cap_game_continues(self):
@@ -328,3 +329,33 @@ class ClockReply(unittest.TestCase):
         g.draw = [(1, RED)]; g.turn = 1
         r, g2 = play(genes(burn_min=99), genes(burn_min=99), rules, random.Random(0), g=g)
         self.assertEqual((r, g2.turn_count), (0, 1))
+
+# ---------------------------------------------------------------- equal-turns tiebreak awareness
+class TiebreakAwareFinish(unittest.TestCase):
+    RULES = {"clock": True, "equal_turns": True}
+    def setup(self, hand1):
+        g = fixed_game(hand0=[], bridge0=[(2,RED),(3,RED),(4,RED),(5,RED),(6,RED)],
+                       hand1=hand1, bridge1=[(2,BLK),(3,BLK),(4,BLK),(5,BLK)], rules=self.RULES)
+        g.turn = 1
+        return g
+
+    def test_finishes_with_a_winning_card(self):
+        g = self.setup([(6,BLK), (7,BLK)])
+        self.assertEqual(policy(genes(burn_min=99), g, 1, 2, 0), (1, (7,BLK)))
+
+    def test_burns_the_cap_when_no_finisher_can_win(self):
+        # My bridge is capped by a Queen: 7r cannot be built but can burn their 6r.
+        g = fixed_game(hand0=[], bridge0=[(2,RED),(3,RED),(4,RED),(5,RED),(6,RED)],
+                       hand1=[(7,RED)], bridge1=[(2,BLK),(3,BLK),(4,BLK),(12,BLK)], rules=self.RULES)
+        g.turn = 1
+        self.assertEqual(policy(genes(burn_min=99), g, 1, 2, 0), (2, (7,RED)))
+
+    def test_prefers_winning_finish_over_burn(self):
+        g = fixed_game(hand0=[], bridge0=[(2,RED),(3,RED),(4,RED),(5,RED),(6,RED)],
+                       hand1=[(7,RED), (13,BLK)], bridge1=[(2,BLK),(3,BLK),(4,BLK),(12,BLK)], rules=self.RULES)
+        g.turn = 1
+        self.assertEqual(policy(genes(burn_min=99), g, 1, 2, 0), (1, (13,BLK)))
+
+    def test_takes_the_draw_when_nothing_better(self):
+        g = self.setup([(6,BLK)])
+        self.assertEqual(policy(genes(burn_min=99), g, 1, 2, 0), (1, (6,BLK)))

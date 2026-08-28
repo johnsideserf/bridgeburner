@@ -246,7 +246,21 @@ def policy(genes, g, me, left, burns_done):
 
     bcost = g.build_cost(me)
     # 0. win now
-    if mylen == 4 and b and left >= bcost:
+    ob = g.bridges[opp]
+    if mylen == 4 and g.rules.get("equal_turns") and me == 1 and len(ob) >= 5:
+        # Reply turn after the first player finished: finishing only wins on
+        # the tiebreak. Prefer a winning finisher, then burning their cap to
+        # keep the round alive, then a drawn finish; otherwise fall through.
+        fin = b if left >= bcost else []
+        outcome = {c: compare_bridges(ob, g.bridges[me] + [c]) for c in fin}
+        wins = [c for c in fin if outcome[c] == 1]
+        if wins: return (1, min(wins, key=lambda c: c[0]))
+        q = legal_burn_cards(g, me)
+        if q and g.burn_cost(ob[-1][0]) <= left:
+            return (2, min(q, key=lambda c: c[0]))
+        draws = [c for c in fin if outcome[c] is None]
+        if draws: return (1, min(draws, key=lambda c: c[0]))
+    elif mylen == 4 and b and left >= bcost:
         return (1, min(b, key=lambda c: c[0]))
     # 1. burn
     if olen >= burn_min:
