@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Bridgeburner</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="Bridgeburner — a two-player card game of building and sabotage. Play against the bots in your browser.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,6 +34,11 @@
       <div class="kv"><span class="k">burns (you / bot)</span><span class="v" id="burnsKv">0 / 0</span></div>
     </div>
 
+  </aside>
+
+  <aside class="drawer">
+   <details id="drawer" open>
+    <summary class="btn wide">Menu <span class="cost">new game · log · rules</span></summary>
     <div class="panel">
       <h2>New game</h2>
       <div class="field">Opponent</div>
@@ -63,6 +68,7 @@
       </details>
     </div>
     <div class="foot">Standard rules · <a href="https://github.com/johnsideserf/bridgeburner">source & solver</a></div>
+   </details>
   </aside>
 
   <main class="table">

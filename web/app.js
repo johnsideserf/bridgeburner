@@ -52,6 +52,7 @@ function writeUrl() {
 
 function newMatch() {
   readControls(); writeUrl();
+  if (mobile.matches) { const d = $('drawer'); d.open = false; d.dataset.touched = '1'; window.scrollTo({ top: 0 }); }
   M.round = 0; M.score = [0, 0]; M.humanFirst = M.startFirst;
   $('chipBotName').textContent = BOTS[M.bot].label; $('botName').textContent = BOTS[M.bot].label;
   S.log = [];
@@ -198,9 +199,10 @@ function render(deal = false) {
   $('botBridge').innerHTML = bridgeHtml(g.bridges[S.b], deal);
   $('myBridge').innerHTML = bridgeHtml(g.bridges[S.h], deal);
   const torches = new Set(myTurn ? legalFor(2).map(([a]) => key(a[1])) : []);
+  let selShown = false;                                   // duplicates share a key; lift only one
   $('myHand').innerHTML = [...g.hands[S.h]].sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(c => {
     let cls = myTurn ? 'can' : '';
-    if (S.sel && same(S.sel, c)) cls += ' sel';
+    if (S.sel && same(S.sel, c) && !selShown) { cls += ' sel'; selShown = true; }
     if (torches.has(key(c))) cls += ' torch';
     if (S.pending === 'ford' && !(S.sel && same(S.sel, c))) cls += ' dim';
     return cardEl(c, cls, deal);
@@ -266,7 +268,13 @@ $('newMatch').addEventListener('click', newMatch);
 $('botSel').addEventListener('change', () => { $('botBlurb').innerHTML = `<p>${esc(BOTS[$('botSel').value].blurb)}</p>`; });
 
 // ---------------------------------------------------------------- boot
+const mobile = matchMedia('(max-width: 900px)');
+function syncDrawer() { const d = $('drawer'); if (!d) return; if (!mobile.matches) d.open = true; else if (d.dataset.touched !== '1') d.open = false; }
+mobile.addEventListener('change', syncDrawer);
+document.addEventListener('toggle', e => { if (e.target.id === 'drawer' && mobile.matches) e.target.dataset.touched = '1'; }, true);
+
 (function boot() {
+  syncDrawer();
   $('botSel').innerHTML = Object.entries(BOTS).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join('');
   const q = new URLSearchParams(location.search);
   $('botSel').value = BOTS[q.get('bot')] ? q.get('bot') : 'Equilibrium';

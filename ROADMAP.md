@@ -41,8 +41,8 @@
 
 ## Next: the web game
 
-- **Mobile layout** (deferred from v1): stack the side panels, fan the hand,
-  bigger touch targets.
+- ~~Mobile layout~~ done 2026-08-28: single column, compact header, scrollable
+  hand, sticky thumb-reach action bar, menu drawer, safe-area insets.
 - **PvP with a link:** the engine runs in the browser, so two humans need only
   a relay — a tiny WebSocket room server (or WebRTC via a signalling page)
   that forwards actions; each client validates with `engine.js`. Invite by
