@@ -4,7 +4,7 @@ Balance analysis for **Bridgeburner**, a two-player card game played with a
 standard 52-card deck. Contains the game engine, a PSRO-style equilibrium
 solver, earlier heuristic-bot tournaments, and the illustrated rules PDF.
 
-## The game (locked ruleset, 2026-08-27)
+## The game (standard ruleset, 2026-08-28)
 
 Race to build a 5-card ascending bridge (aces low, suits ignored). 2 actions
 per turn. Full rules in [RULES.md](RULES.md) / `Bridgeburner_Rules.pdf`.
@@ -13,7 +13,7 @@ per turn. Full rules in [RULES.md](RULES.md) / `Bridgeburner_Rules.pdf`.
 |----------|------|--------|
 | Draw     | 1    | Take top card of the draw pile |
 | Build    | 2    | Play a hand card higher than your rightmost bridge card |
-| Burn     | 1*   | Discard a same-color card that beats the opponent's rightmost bridge card **by at most 2 ranks**; it washes into the River. *J/Q cost 2 actions; Kings are unburnable |
+| Burn     | 1*   | Discard a same-color card that beats the opponent's rightmost bridge card; it washes into the River. *J/Q cost 2 actions; Kings are unburnable |
 | Ford     | 1    | Discard any hand card, take any of the 3 face-up River cards, refill River |
 | Flush    | 1    | Replace all 3 River cards |
 | Demolish | 1    | Remove your own rightmost bridge card |
@@ -22,6 +22,8 @@ Setup: deal 7 each, 3 face-up River cards. **The pile is the clock** — never
 reshuffled; when it runs out the round ends and the longer bridge wins.
 **Equal turns** — if the first player finishes, the second gets a reply turn.
 Ties compare the top card, then the next card down. Best of three.
+Optional house rules: **Quick foundations** (spans 1–2 cost 1 action) and
+**Close torches** (burn card within 2 ranks of its target).
 
 ## Files
 
@@ -68,12 +70,17 @@ Ties compare the top card, then the next card down. Best of three.
 - `burn_span 2` (torch within 2 ranks) kills "hoard highs" as a dual-purpose
   plan: high cards become finishers, not weapons. Under a flat 2-action burn
   cost the solver *voluntarily* limits itself to 2-rank torches anyway.
-- **Locked: Clock + Span2 + Equal turns.** Confirmed over 3 seeds at 500
-  games/eval: exploitability 49–50%, first player 48–49%, comeback after the
-  opponent reaches 4 cards 29–31%, 0% stalls, 25-turn rounds, 6 burns/game.
-  Equilibrium: build once you hold a full chain, burn with cheap torches,
-  race when the pile is low. One dominant strategy within the bot policy
-  space (support 1) — needs table testing for human-only play (bluffs, bait).
+- **Standard rules: Clock + Equal turns.** First human playtest (2026-08-27)
+  preferred this over the version with the 2-rank torch rule ("a bit more
+  balanced"). Bots agree on fairness (first player 51%, exploitability
+  50–52%) but warn about game shape: the bot equilibrium burns everything
+  (13 burns/round, only 19% of rounds end with a finished bridge, 41 turns).
+  Humans didn't play it that way — so the torch-range rule is kept as the
+  **Close torches** house rule for tables whose games turn into burn wars.
+- With Close torches (the previously locked ruleset), confirmed over 3 seeds
+  at 500 games/eval: exploitability 49–50%, first player 48–49%, comeback
+  after the opponent reaches 4 cards 29–31%, 0% stalls, 25-turn rounds,
+  6 burns/game, 83% of rounds won by a finished bridge.
 - Earlier "exploitability ~55%" numbers were search noise; the solver now
   re-evaluates best responses on held-out games.
 

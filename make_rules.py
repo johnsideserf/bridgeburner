@@ -394,9 +394,8 @@ rows = [
     ]),
     ("BURN", "1 ACTION*", flame, [
         [("Discard a hand card that matches the ", "Helvetica", INK), ("color", "Helvetica-Bold", INK), (" (red/black) of your opponent's", "Helvetica", INK)],
-        [("rightmost bridge card, ", "Helvetica", INK), ("beats it, and is at most 2 ranks above it", "Helvetica-Bold", INK), (".", "Helvetica", INK)],
-        [("A King can only burn a Jack or Queen; nothing burns a King.  Their card is destroyed", "Helvetica", INK)],
-        [("— and washes into the River, replacing its oldest card.", "Helvetica", INK)],
+        [("rightmost bridge card ", "Helvetica", INK), ("and beats it", "Helvetica-Bold", INK), (".  Nothing burns a King.", "Helvetica", INK)],
+        [("Their card is destroyed — and washes into the River, replacing its oldest card.", "Helvetica", INK)],
         [("*Mortar resists the flames: burning a Jack or Queen costs ", "Helvetica", INK), ("both", "Helvetica-Bold", EMBER_D), (" actions.", "Helvetica", INK)],
     ]),
     ("FORD", "1 ACTION", ford_icon, [
@@ -445,8 +444,8 @@ c.drawString(88, ry - 24, "ARSONIST'S ADVICE")
 c.setFillColor(PARCH); c.setFont("Helvetica", 9.3)
 tips = [
     "Every burn spent is a card not built — attack when it costs them more than it costs you.",
-    "Torches must be close. High cards finish bridges; the cards just above your rival's cap burn them.",
-    "Watch the colors: cap your bridge with a card whose next two ranks in that color are already gone.",
+    "High cards are finishers first and torches second — a King spent on a 6 is a bridge you'll never complete.",
+    "Watch the colors: cap your bridge with a card whose higher ranks in that color are already gone.",
     "The River remembers. Burned cards resurface there — don't hand your rival their card back.",
     "The pile is the clock. Every draw and ford brings the end nearer — a half-built bridge beats an empty one.",
     "Mortar buys time, not immunity. A face-card cap costs your rival a full turn to burn — build while they swing.",
@@ -459,12 +458,19 @@ for t in tips:
 # Optional house rules
 hy = ry - 122 - 12
 c.setFillColor(PARCH2); c.setStrokeColor(GOLD); c.setLineWidth(1)
-c.roundRect(38, hy - 58, W - 76, 54, 8, stroke=1, fill=1)
+c.roundRect(38, hy - 84, W - 76, 80, 8, stroke=1, fill=1)
 c.setFillColor(EMBER_D); c.setFont("Helvetica-Bold", 11)
-c.drawString(52, hy - 18, "OPTIONAL HOUSE RULE  —  QUICK FOUNDATIONS")
-c.setFillColor(INK); c.setFont("Helvetica", 9.6)
-c.drawString(52, hy - 33, "Your first two bridge cards cost 1 action each instead of 2 (the third card onward costs 2 as normal).")
-c.drawString(52, hy - 46, "Shorter rounds, bridges up from turn 2, more comebacks — but fewer burns. Agree before dealing.")
+c.drawString(52, hy - 18, "OPTIONAL HOUSE RULES  —  agree before dealing")
+c.setFillColor(INK); c.setFont("Helvetica-Bold", 9.6)
+c.drawString(52, hy - 33, "Quick foundations:")
+c.setFont("Helvetica", 9.6)
+c.drawString(150, hy - 33, "your first two bridge cards cost 1 action each instead of 2. Shorter rounds,")
+c.drawString(52, hy - 46, "bridges up from turn 2, more comebacks — but fewer burns.")
+c.setFont("Helvetica-Bold", 9.6)
+c.drawString(52, hy - 61, "Close torches:")
+c.setFont("Helvetica", 9.6)
+c.drawString(126, hy - 61, "a burn card must be at most 2 ranks above the card it burns (a King only burns a Jack")
+c.drawString(52, hy - 74, "or Queen). Use it if your games turn into burn wars where nobody finishes a bridge.")
 
 c.setFillColor(INK_SOFT); c.setFont("Helvetica-Oblique", 8.5)
 c.drawCentredString(W/2, 34, "Page 2 of 2  —  five-card bridge wins  ·  equal turns  ·  best of three rounds takes the match")

@@ -25,9 +25,10 @@ import random
 
 RED, BLK = 0, 1
 
-# The locked ruleset (2026-08-27): pile is the clock, torches within 2 ranks,
-# second player always gets a reply turn. See RULES.md.
-CURRENT_RULES = {"clock": True, "burn_span": 2, "equal_turns": True}
+# The standard ruleset (2026-08-28, after the first human playtest): pile is
+# the clock, second player always gets a reply turn. "Close torches"
+# (burn_span 2) is an optional house rule -- see RULES.md and solve.RULESETS.
+CURRENT_RULES = {"clock": True, "equal_turns": True}
 
 def fresh_deck():
     # (rank 1..13, color) x2 copies per color = 52

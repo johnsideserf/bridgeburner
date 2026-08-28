@@ -32,12 +32,14 @@ SEEDS = {
     "Balanced":       (2,   5,    0,    1,   1,   2,   3,   1,   0,   0),
     "Armored":        (2,   5,    0,    1,   0,   2,   3,   1,   1,   0),
     "Clockwatcher":   (2,   5,    1,    1,   0,   2,   3,   1,   0,   12),
-    "Equilibrium":    (0,   2,    1,    1,   0,   3,   99,  0,   0,   6),
+    "Equilibrium":    (1,   5,    1,    0,   1,   3,   3,   0,   0,   12),  # Clock+Equal (Current)
+    "CloseTorchEq":   (0,   2,    1,    1,   0,   3,   99,  0,   0,   6),   # Current+CloseTorches
 }
 
 # Name -> rules dict. Add candidate rulesets here; select with --rules.
 RULESETS = {
-    "Current":          dict(CURRENT_RULES),   # locked 2026-08-27; defined in engine.py
+    "Current":          dict(CURRENT_RULES),   # standard rules; defined in engine.py
+    "Current+CloseTorches": dict(CURRENT_RULES, burn_span=2),   # house rule: torch within 2 ranks
     "NoLimit":          {},
     "KeepPace":         {"slack": 0},
     "Slack1":           {"slack": 1},
@@ -61,9 +63,10 @@ RULESETS = {
     "Clock+Span3+Equal":    {"clock": True, "burn_span": 3, "equal_turns": True},
     "Clock+Span4+Equal":    {"clock": True, "burn_span": 4, "equal_turns": True},
     "Clock+Span3+BurnCost2+Equal": {"clock": True, "burn_span": 3, "burn_cost2": True, "equal_turns": True},
-    "Current+Cheap2":       {"clock": True, "burn_span": 2, "equal_turns": True, "cheap_spans": 2},
-    "Current+Hand7":        {"clock": True, "burn_span": 2, "equal_turns": True, "hand_limit": 7},
-    "Current+Cheap2+Hand7": {"clock": True, "burn_span": 2, "equal_turns": True, "cheap_spans": 2, "hand_limit": 7},
+    "Current+Cheap2":       dict(CURRENT_RULES, cheap_spans=2),   # house rule: quick foundations
+    "Current+Hand7":        dict(CURRENT_RULES, hand_limit=7),
+    "Current+Cheap2+Hand7": dict(CURRENT_RULES, cheap_spans=2, hand_limit=7),
+    "Current+BothHouse":    dict(CURRENT_RULES, burn_span=2, cheap_spans=2),
     "Current+ClockReply":   dict(CURRENT_RULES, clock_reply=True),
 }
 

@@ -4,8 +4,9 @@
 
 - Engine + PSRO-lite solver with held-out best-response evaluation, first-player
   and comeback metrics, cross-ruleset summary.
-- Ruleset locked: **the pile is the clock, torches within 2 ranks, equal turns**
-  (tiebreak: top card, then next card down). Confirmed over 3 seeds.
+- Standard rules: **the pile is the clock, equal turns** (tiebreak: top card,
+  then next card down). "Close torches" (2-rank torch rule) and "Quick
+  foundations" are optional house rules. First human playtest 2026-08-27.
 - Live solver dashboard (`dashboard.py`), bot-game viewer and human-vs-bot table
   (`/play`), turn-by-turn trace tool.
 
@@ -20,8 +21,10 @@
   needs), torch conservation, colour-aware burn timing.
 - **Interaction metrics** in the solver summary: turns to first build, share of
   turns where a burn was available, builds burned within one turn.
-- **Human playtesting** with the locked rules; feed observed human plans back
-  into the bot vocabulary. Watch for the **clock drain**: a first player ahead
+- **More human playtesting.** Track burns per round and how rounds end
+  (finished bridge vs clock); if games drift into burn wars as players
+  improve, promote Close torches to the standard rules. Feed observed human
+  plans back into the bot vocabulary. Watch for the **clock drain**: a first player ahead
   on the tiebreak can empty the pile on their own turn and end the round
   before P2 replies (legal; no bot plays it; a hand-written drainer moved P1
   from 49% to 51%). The `clock_reply` rule flag (P2 always gets a reply turn

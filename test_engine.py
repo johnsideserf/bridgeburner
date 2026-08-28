@@ -243,7 +243,7 @@ from engine import CURRENT_RULES
 
 class Locked(unittest.TestCase):
     def test_current_rules(self):
-        self.assertEqual(CURRENT_RULES, {"clock": True, "burn_span": 2, "equal_turns": True})
+        self.assertEqual(CURRENT_RULES, {"clock": True, "equal_turns": True})
 
     def test_on_action_hook_sees_every_action(self):
         seen = []

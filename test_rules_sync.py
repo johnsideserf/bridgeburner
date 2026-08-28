@@ -10,11 +10,14 @@ class RulesSync(unittest.TestCase):
     def _texts(self):
         return {"RULES.md": open("RULES.md").read(), "make_rules.py": open("make_rules.py").read()}
 
-    def test_burn_span_number_matches_rulebook(self):
+    def test_torch_range_is_a_house_rule_not_a_standard_rule(self):
+        self.assertNotIn("burn_span", CURRENT_RULES)
         for name, txt in self._texts().items():
+            std = txt.split("house rule")[0].split("HOUSE RULE")[0]   # text before the house-rules section
+            self.assertNotRegex(std, r"at most \d+ ranks above", f"{name}: standard Burn text still range-limited")
             m = re.search(r"at most (\d+) ranks above", txt)
-            self.assertIsNotNone(m, f"{name}: burn-span sentence missing")
-            self.assertEqual(int(m.group(1)), CURRENT_RULES["burn_span"], name)
+            self.assertIsNotNone(m, f"{name}: house rule for torch range missing")
+            self.assertEqual(int(m.group(1)), RULESETS["Current+CloseTorches"]["burn_span"], name)
 
     def test_clock_and_equal_turns_described(self):
         for name, txt in self._texts().items():
