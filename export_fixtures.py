@@ -43,7 +43,7 @@ CASES = [
     ("Current", "Equilibrium", "Builder"), ("Current", "Equilibrium", "Equilibrium"),
     ("Current", "Hoarder", "Sniper"), ("Current", "Armored", "Clockwatcher"),
     ("Current+CloseTorches", "CloseTorchEq", "Builder"), ("Current+Cheap2", "Equilibrium", "Balanced"),
-    ("Current+BothHouse", "CloseTorchEq", "Sniper"), ("NoLimit", "Hoarder", "Builder"),
+    ("Current+BothHouse", "CloseTorchEq", "Sniper"),   # (no NoLimit: reshuffles use Python's RNG)
     ("Clock+BurnCost2+Equal", "Sniper", "Balanced"), ("Current+ClockReply", "Equilibrium", "Hoarder"),
 ]
 
