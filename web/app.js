@@ -246,10 +246,11 @@ document.addEventListener('click', e => {
   if (b) { if (b.dataset.cmd === 'new') newMatch(); else nextRound(); return; }
   const a = e.target.closest('button[data-act]');
   if (a) {
-    const v = a.dataset.act;
+    if (!a.dataset.act) return;
+    const v = JSON.parse(a.dataset.act);          // 'cancel' | 'ford' | an action array
     if (v === 'cancel') { S.sel = null; S.pending = null; render(); return; }
     if (v === 'ford') { S.pending = 'ford'; render(); return; }
-    if (v) humanAct(JSON.parse(v));
+    humanAct(v);
     return;
   }
   const c = e.target.closest('.card[data-card]');
