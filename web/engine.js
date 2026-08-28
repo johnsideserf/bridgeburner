@@ -282,8 +282,8 @@ export function endTurn(g, rules, me) {
   return { over: false, winner: null };
 }
 // Play out `me`'s whole turn with a decision function decide(g, me, left) -> action.
-export function botTurn(decide, g, rules, me, onAction) {
-  let left = turnActions(g);
+export function botTurn(decide, g, rules, me, onAction, leftStart) {
+  let left = leftStart ?? turnActions(g);
   while (left > 0) {
     const act = decide(g, me, left);
     let cost = doAction(g, me, act);
