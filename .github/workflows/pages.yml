@@ -20,6 +20,12 @@ jobs:
         run: cd web && npm test
       - name: Stage site (game only, no test fixtures)
         run: mkdir -p site && cp web/*.html web/*.css web/*.js site/
+      - name: Cache-bust asset URLs with the commit SHA
+        run: |
+          V=${GITHUB_SHA::7}
+          sed -i "s#\(app\.js\|style\.css\)\"#\1?v=$V\"#g" site/index.html
+          sed -i "s#'\./\(engine\|bots\|strategies\)\.js'#'./\1.js?v=$V'#g; s#'worker\.js'#'worker.js?v=$V'#g" site/*.js
+          grep -o "v=$V" site/index.html site/app.js site/worker.js site/bots.js | sort | uniq -c
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: { path: site }
