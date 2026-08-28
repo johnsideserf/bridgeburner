@@ -97,6 +97,15 @@ comeback rates after the opponent reaches 3/4 cards, stall rate, average
 turns, burns per game, and mixture support (number of strategies in the Nash
 mix; 1 = one dominant way to play).
 
+**Reading the exploitability number honestly.** It is a *floor* estimate: the
+best response is searched only within the bot policy space (10 genes), and it
+is measured against the Nash mixture *before* the final exploiter joined the
+pool. 50% means "nothing in this vocabulary beats the mix", not "the game is
+solved". Early stopping (`--stop`, default 53%) is confirmed on a second
+held-out batch before it fires; for any number you intend to quote, run with
+`--stop 0.0` so every iteration executes, and use `--games 500 --heldout 8`
+over several `--seed`s.
+
 ## Open questions
 
 - Richer policy space (bait builds, River denial, torch conservation) to see

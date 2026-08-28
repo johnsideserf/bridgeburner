@@ -62,3 +62,42 @@ class Replay(unittest.TestCase):
         self.assertIn("result", fr)
         self.assertIn("discard", f)
         self.assertEqual(fr["turns"], fr["frames"][-1]["turn_count"] + 1)
+
+class HumanEqualTurns(unittest.TestCase):
+    """Equal turns on the human path: finishing first must not end the round."""
+    def four(self, col): return [(2,col),(3,col),(4,col),(5,col)]
+
+    def test_human_first_finishing_gives_bot_a_reply_turn(self):
+        s = Session(rules=CURRENT_RULES, bot="Builder", seed=1, human_first=True)
+        s.g.hands = [[(6, 0)], [(7, 1)]]
+        s.g.bridges = [self.four(0), self.four(1)]
+        st = s.act([1, [6, 0]])                  # human completes 2..6 first
+        self.assertTrue(st["over"])
+        self.assertEqual(st["winner"], "bot")   # bot's reply turn: builds 7b, 7 beats 6 on the tiebreak
+        self.assertTrue(any(e["who"] == "bot" and "Build" in e["text"] for e in st["log"]))
+
+    def test_human_second_takes_reply_turn_and_wins_on_tiebreak(self):
+        s = Session(rules=CURRENT_RULES, bot="Builder", seed=1, human_first=False)
+        # Force the state: bot (seat 0) just completed its bridge; human to reply.
+        s.g.bridges = [self.four(0) + [(6, 0)], self.four(1)]
+        s.g.hands = [[], [(9, 1)]]
+        s.g.turn = 1; s.left = 2; s.over = False
+        st = s.act([1, [9, 1]])
+        self.assertTrue(st["over"]); self.assertEqual(st["winner"], "human")
+
+    def test_human_second_fails_to_reply_loses(self):
+        s = Session(rules=CURRENT_RULES, bot="Builder", seed=1, human_first=False)
+        s.g.bridges = [self.four(0) + [(6, 0)], self.four(1)]
+        s.g.hands = [[], [(2, 1)]]
+        s.g.turn = 1; s.left = 2; s.over = False
+        st = s.act([9])
+        self.assertTrue(st["over"]); self.assertEqual(st["winner"], "bot")
+
+    def test_clock_ends_on_human_draw(self):
+        s = Session(rules=CURRENT_RULES, bot="Builder", seed=1, human_first=True)
+        s.g.bridges = [[(2, 0), (3, 0)], [(5, 1)]]
+        s.g.hands = [[], []]; s.g.draw = [(1, 0)]; s.g.river = []
+        st = s.act([0])                          # empties the pile mid-turn
+        self.assertFalse(st["over"]); self.assertEqual(st["pile"], 0)
+        st = s.act([9])                          # clock is scored when the turn ends
+        self.assertTrue(st["over"]); self.assertEqual(st["winner"], "human")

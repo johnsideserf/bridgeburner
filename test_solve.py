@@ -92,3 +92,11 @@ class BestResponseSelection(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class Args(unittest.TestCase):
+    def test_iters_zero_rejected(self):
+        import subprocess, sys
+        r = subprocess.run([sys.executable, "solve.py", "--iters", "0", "--rules", "Current"],
+                           capture_output=True, text=True, cwd=__import__("os").path.dirname(__import__("os").path.abspath(__file__)))
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("iters", r.stderr)

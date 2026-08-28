@@ -18,6 +18,8 @@ Rules dict keys:
   burn_span  : int  = torch card must be at most this many ranks above target
   cheap_spans: int  = building costs 1 action while your bridge has fewer
                       than this many cards (2 actions after)
+  clock_reply: True = if the first player empties the pile, the second player
+                      still gets a reply turn before the clock is scored
 """
 import random
 
@@ -301,6 +303,8 @@ def end_turn(g, rules, me):
     if rules.get("equal_turns") and me == 1 and any(len(b) >= 5 for b in g.bridges):
         return True, equal_turns_winner(g)
     if rules.get("clock") and not g.draw:
+        if rules.get("clock_reply") and me == 0:
+            return False, None             # P2 replies; the clock is scored after that turn
         return True, clock_winner(g)
     return False, None
 

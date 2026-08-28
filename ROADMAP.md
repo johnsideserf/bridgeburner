@@ -11,16 +11,24 @@
 
 ## Next
 
-- **Decide on `cheap_spans 2`** (spans 1–2 cost 1 action): 17-turn rounds,
-  first build on turn ~2, best comeback rates, ~30% fewer burns. Adopt or not,
-  then sync `RULES.md` / PDF.
+- **`cheap_spans 2`** (spans 1–2 cost 1 action) shipped as the optional
+  "Quick Foundations" house rule: 17-turn rounds, first build on turn ~2, best
+  comeback rates, ~30% fewer burns. Promote to the standard rules if
+  playtesting prefers it.
 - **Richer bot vocabulary** so "one dominant strategy" isn't an artifact of the
   gene space: bait builds, River denial (fording away the card the rival
   needs), torch conservation, colour-aware burn timing.
 - **Interaction metrics** in the solver summary: turns to first build, share of
   turns where a burn was available, builds burned within one turn.
 - **Human playtesting** with the locked rules; feed observed human plans back
-  into the bot vocabulary.
+  into the bot vocabulary. Watch for the **clock drain**: a first player ahead
+  on the tiebreak can empty the pile on their own turn and end the round
+  before P2 replies (legal; no bot plays it; a hand-written drainer moved P1
+  from 49% to 51%). The `clock_reply` rule flag (P2 always gets a reply turn
+  when the pile runs out) is implemented as `Current+ClockReply`; in
+  simulation it over-corrects for bots (P1 win 48–49% -> 45–46%, 2 seeds x
+  400 games, nothing else changes), so it is **not** in the standard rules.
+  Adopt it only if humans actually play the drain line.
 - **Miniature CFR/MCCFR** (smaller deck, 3-card bridge) for a provably optimal
   baseline to sanity-check the PSRO results.
 

@@ -64,6 +64,7 @@ RULESETS = {
     "Current+Cheap2":       {"clock": True, "burn_span": 2, "equal_turns": True, "cheap_spans": 2},
     "Current+Hand7":        {"clock": True, "burn_span": 2, "equal_turns": True, "hand_limit": 7},
     "Current+Cheap2+Hand7": {"clock": True, "burn_span": 2, "equal_turns": True, "cheap_spans": 2, "hand_limit": 7},
+    "Current+ClockReply":   dict(CURRENT_RULES, clock_reply=True),
 }
 
 class Progress:
@@ -279,7 +280,10 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--games", type=int, default=200,
                     help="games per evaluation during search")
-    ap.add_argument("--iters", type=int, default=6, help="PSRO iterations")
+    def positive(v):
+        if int(v) < 1: raise argparse.ArgumentTypeError("--iters must be >= 1")
+        return int(v)
+    ap.add_argument("--iters", type=positive, default=6, help="PSRO iterations (>= 1)")
     ap.add_argument("--restarts", type=int, default=3,
                     help="random restarts in best-response search")
     ap.add_argument("--heldout", type=int, default=5,

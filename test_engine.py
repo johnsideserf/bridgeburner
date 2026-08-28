@@ -304,3 +304,27 @@ class LegalActions(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# ---------------------------------------------------------------- clock_reply
+class ClockReply(unittest.TestCase):
+    def test_second_player_gets_reply_when_first_player_empties_pile(self):
+        rules = {"clock": True, "clock_reply": True}
+        g = fixed_game(hand0=[], bridge0=[(2,RED),(3,RED)], hand1=[(9,BLK)], bridge1=[(5,BLK)], rules=rules)
+        g.draw = [(1, RED)]                     # P0's draw empties the pile
+        r, g2 = play(genes(burn_min=99), genes(burn_min=99, ford_gain=99), rules, random.Random(0), g=g)
+        self.assertEqual(g2.turn_count, 2)       # P1 took a reply turn
+        self.assertEqual(r, 1)                   # P1 built 9b -> 2 cards, top 9 beats top 3
+
+    def test_without_flag_round_ends_immediately(self):
+        rules = {"clock": True}
+        g = fixed_game(hand0=[], bridge0=[(2,RED),(3,RED)], hand1=[(9,BLK)], bridge1=[(5,BLK)], rules=rules)
+        g.draw = [(1, RED)]
+        r, g2 = play(genes(burn_min=99), genes(burn_min=99), rules, random.Random(0), g=g)
+        self.assertEqual((r, g2.turn_count), (0, 1))
+
+    def test_pile_emptied_by_second_player_ends_at_once(self):
+        rules = {"clock": True, "clock_reply": True}
+        g = fixed_game(hand0=[], bridge0=[(2,RED),(3,RED)], hand1=[], bridge1=[(5,BLK)], rules=rules)
+        g.draw = [(1, RED)]; g.turn = 1
+        r, g2 = play(genes(burn_min=99), genes(burn_min=99), rules, random.Random(0), g=g)
+        self.assertEqual((r, g2.turn_count), (0, 1))
