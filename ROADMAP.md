@@ -9,6 +9,10 @@
   foundations" are optional house rules. First human playtest 2026-08-27.
 - Live solver dashboard (`dashboard.py`), bot-game viewer and human-vs-bot table
   (`/play`), turn-by-turn trace tool.
+- **Browser game v1 (2026-08-28):** https://johnsideserf.github.io/bridgeburner/
+  — static GitHub Pages, JS engine with Python parity fixtures, three bot
+  tiers incl. a rollout bot, best-of-three matches, house-rule toggles,
+  shareable seeds. Deployed by `.github/workflows/pages.yml` on push.
 
 ## Next
 
@@ -35,22 +39,17 @@
 - **Miniature CFR/MCCFR** (smaller deck, 3-card bridge) for a provably optimal
   baseline to sanity-check the PSRO results.
 
-## Later: online playable version
+## Next: the web game
 
-Goal: play Bridgeburner in a browser against a friend or a bot, with a link.
-
-- **Server:** the engine is already pure Python with a JSON action API
-  (`game_session.py`, `/api/new`, `/api/act`). Move sessions from in-memory
-  to a small store (SQLite/Redis), add a second human seat and turn
-  notifications (WebSocket or long-poll), and per-game invite links.
-- **Client:** `play.html` is the seed of the UI — split into a standalone app
-  (hand/bridge/River components already exist), add animations for burns and
-  the clock, mobile layout, and a match (best-of-three) wrapper.
-- **Bots as opponents:** expose the solver's equilibrium strategies at several
-  strengths (Builder → Sniper → Equilibrium) and a "watch the bots" replay
-  feed for onboarding.
-- **Hosting:** stateless HTTP + one websocket process is enough for early
-  traffic; deploy behind TLS, no accounts needed for invite-link play.
-- **Balance loop:** log finished online games (anonymised) and replay them
-  through the solver's metrics so the ruleset keeps being validated against
-  real human play, not just bots.
+- **Mobile layout** (deferred from v1): stack the side panels, fan the hand,
+  bigger touch targets.
+- **PvP with a link:** the engine runs in the browser, so two humans need only
+  a relay — a tiny WebSocket room server (or WebRTC via a signalling page)
+  that forwards actions; each client validates with `engine.js`. Invite by
+  URL, no accounts. Then matchmaking (a lobby list) on top of the same relay.
+- **Bot strength:** the Rollout bot beats the Equilibrium rule-bot ~62%, so a
+  stronger opponent *can* exploit the solver's equilibrium — worth feeding
+  back into the solver as an exploiter, and adding a "watch the bots" mode.
+- **Balance loop:** optional anonymised game logs from the web game, replayed
+  through the solver's metrics, so the ruleset keeps being validated against
+  real human play.

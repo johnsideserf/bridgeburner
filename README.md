@@ -1,8 +1,11 @@
-# bridge-burner-proofs
+# Bridgeburner
 
-Balance analysis for **Bridgeburner**, a two-player card game played with a
-standard 52-card deck. Contains the game engine, a PSRO-style equilibrium
-solver, earlier heuristic-bot tournaments, and the illustrated rules PDF.
+**Play it in your browser: https://johnsideserf.github.io/bridgeburner/**
+
+Balance analysis and a browser game for **Bridgeburner**, a two-player card
+game played with a standard 52-card deck. Contains the game engine, a
+PSRO-style equilibrium solver, the illustrated rules PDF, and a static web
+game (vs bot) that runs a parity-tested JavaScript port of the engine.
 
 ## The game (standard ruleset, 2026-08-28)
 
@@ -49,7 +52,15 @@ Optional house rules: **Quick foundations** (spans 1–2 cost 1 action) and
   (`solve.py --progress` streams JSON-lines events; the page polls them).
 - `play.html` + `game_session.py` — the Table page at `/play`: watch two bots
   play a game frame by frame, or play against a bot yourself.
-- `ROADMAP.md` — what's next, including the online playable version.
+- `web/` — the browser game (GitHub Pages, no server): `engine.js` (port of
+  `engine.py`, parity-tested against Python-exported replays in
+  `web/test/fixtures/`), `bots.js` (Builder / Equilibrium / Rollout — a
+  determinised Monte-Carlo bot that beats the Equilibrium bot ~62%),
+  `worker.js` (bot decisions off the main thread), `index.html`/`app.js`/
+  `style.css`. `export_fixtures.py` regenerates the fixtures and
+  `web/strategies.js`; CI fails if they drift from the Python engine.
+  Tests: `cd web && npm test`.
+- `ROADMAP.md` — what's next (PvP, matchmaking, mobile).
 - `trace_game.py` — prints one game turn by turn (`--seed N --a Builder --b Equilibrium --rules NoLimit`).
 - `test_*.py` — pytest suite.
 - `sim.py`, `sim2.py` — earlier heuristic-bot tournaments (rounds 1 & 2).
